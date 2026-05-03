@@ -1,14 +1,25 @@
-.PHONY: run clean
+.PHONY: image efi run clean
 
-run:
-	$(MAKE) -C bootloader
-	$(MAKE) -C kernel
-	./run.sh
+image:
+	docker build -t bootloader bootloader/
 
-build:
-	$(MAKE) -C bootloader
-	$(MAKE) -C kernel
+efi:
+	docker run --rm \
+	    -v $(shell pwd)/bootloader:/src \
+	    -v $(shell pwd)/dist:/out \
+	    bootloader
 
-clean:
-	$(MAKE) -C bootloader clean
+efi-clean:
+	docker run --rm \
+	    -v $(shell pwd)/bootloader:/src \
+	    -v $(shell pwd)/dist:/out \
+	    bootloader clean
+
+clean: efi-clean
 	$(MAKE) -C kernel clean
+
+build: efi
+	$(MAKE) -C kernel
+
+run: build
+	./run.sh

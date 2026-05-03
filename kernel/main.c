@@ -7,6 +7,7 @@
 #include "pic.h"
 #include "pit.h"
 #include "pmm.h"
+#include "processor_info.h"
 #include "ps2_keyboard_driver.h"
 #include "serial.h"
 #include "vmm.h"
@@ -29,6 +30,10 @@ void kernel_main(BootInfo *boot_info) {
     ps2_keyboard_init();
     pit_init();
     enable_interrupts();
+
+    // char vendor[13];
+    // read_cpu_vendor_id(vendor);
+    // kernel_println(vendor);
 
     fb_clear(COLOR_BLACK);
     fb_draw_pixel(50, 50, COLOR_RED);
