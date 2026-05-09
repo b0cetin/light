@@ -1,20 +1,22 @@
 GNU_EFI := /gnu-efi
 ARCH    := x86_64
-SRC     := /src
-OUT     := /out
+OUT     := ../dist
 TMP     := /tmp/bootloader-build
+
+Q ?= @
 
 CC      = gcc
 LD      = ld
 OBJCOPY = objcopy
 
-SRCS := $(wildcard $(SRC)/*.c)
-OBJS := $(SRCS:$(SRC)/%.c=$(TMP)/%.o)
+SRCS := $(wildcard *.c)
+OBJS := $(SRCS:%.c=$(TMP)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 CFLAGS = \
     -I$(GNU_EFI)/inc \
     -I$(GNU_EFI)/inc/$(ARCH) \
+    -I$(GNU_EFI)/inc/protocol \
     -ffreestanding \
     -fno-stack-protector \
     -fno-stack-check \
@@ -31,7 +33,6 @@ LDFLAGS := \
     -znocombreloc \
     -shared \
     -Bsymbolic \
-    -no-pie \
     -T $(GNU_EFI)/gnuefi/elf_x86_64_efi.lds
 
 OBJCOPYFLAGS := \
@@ -52,13 +53,13 @@ OBJCOPYFLAGS := \
 
 # ── Targets ───────────────────────────────────────────────────────────────────
 
-.PHONY: all clean
+.PHONY: all clean compile_commands
 
 all: $(OUT)/BOOTX64.EFI
 
 -include $(DEPS)
 
-$(TMP)/%.o: $(SRC)/%.c | $(TMP)
+$(TMP)/%.o: %.c | $(TMP)
 	@echo "  CC    $(notdir $<)"
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 

@@ -1,0 +1,7 @@
+.git
+.cache
+.vscode
+dist
+fat
+*.o
+compile_commands.json

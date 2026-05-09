@@ -1,25 +1,33 @@
-.PHONY: image efi run clean
+UNIFIED_IMAGE    := light-dev
+
+.PHONY: image
+.PHONY: all bootloader kernel run debug debug-kernel clean
+
+# ── Unified image (prepare devcontainer) ─────────────────────────────────────
 
 image:
-	docker build -t bootloader bootloader/
+	docker build -t $(UNIFIED_IMAGE) -f .devcontainer/Dockerfile .
 
-efi:
-	docker run --rm \
-	    -v $(shell pwd)/bootloader:/src \
-	    -v $(shell pwd)/dist:/out \
-	    bootloader
+# ── Build targets (run inside devcontainer) ──────────────────────────────────
 
-efi-clean:
-	docker run --rm \
-	    -v $(shell pwd)/bootloader:/src \
-	    -v $(shell pwd)/dist:/out \
-	    bootloader clean
+bootloader:
+	make -C bootloader -f bootloader.mk
 
-clean: efi-clean
-	$(MAKE) -C kernel clean
+kernel:
+	make -C kernel -f kernel.mk
 
-build: efi
-	$(MAKE) -C kernel
+all: bootloader kernel
 
-run: build
+clean:
+	rm -rf dist /tmp/bootloader-build /tmp/kernel-build
+
+# ── Run targets (run outside devcontainer) ──────────────────────────────────
+
+run:
 	./run.sh
+
+debug:
+	DEBUG=1 ./run.sh
+
+debug-kernel:
+	x86_64-elf-gdb dist/kernel.elf -ex "target remote localhost:1234" -ex "continue"
