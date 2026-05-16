@@ -22,8 +22,6 @@ void kernel_main(BootInfo *boot_info) {
     pmm_init(boot_info);
     vmm_init();
 
-    pmm_print_stats();
-
     fb_init(boot_info);
 
     pic_remap(32); // After CPU exceptions
@@ -31,9 +29,11 @@ void kernel_main(BootInfo *boot_info) {
     pit_init();
     enable_interrupts();
 
-    // char vendor[13];
-    // read_cpu_vendor_id(vendor);
-    // kernel_println(vendor);
+    char vendor[13];
+    cpuid_read_vendor(vendor);
+    kernel_println("CPU vendor: %s", vendor);
+
+    cpuid_check_apic() ? kernel_println("APIC is supported.") : kernel_println("APIC is not supported.");
 
     fb_clear(COLOR_BLACK);
     fb_draw_pixel(50, 50, COLOR_RED);

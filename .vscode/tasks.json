@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "make all",
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "make run",
+            "group": { "kind": "build" },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+        },
+        {
+            "label": "start-qemu",
+            "type": "shell",
+            "command": "make debug",
+            "isBackground": true,
+            "dependsOn": "build",
+            "presentation": { "reveal": "always", "panel": "dedicated" },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": ".*",
+                    "file": 1,
+                    "location": 1,
+                    "message": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*$",
+                    "endsPattern": "GDB server ready"
+                }
+            }
+        }
+    ]
+}

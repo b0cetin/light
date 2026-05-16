@@ -1,9 +1,8 @@
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1: Build gnu-efi (for bootloader)
 # ──────────────────────────────────────────────────────────────────────────────
 
-FROM ubuntu:24.04 AS gnu-efi-builder
+FROM --platform=linux/amd64 ubuntu:24.04 AS gnu-efi-builder
 
 RUN apt-get update && apt-get install -y \
     build-essential git make \
@@ -16,7 +15,7 @@ RUN git clone https://github.com/ncroxon/gnu-efi.git \
 # Stage 2: Build x86_64-elf cross-compiler (for kernel)
 # ──────────────────────────────────────────────────────────────────────────────
 
-FROM ubuntu:24.04 AS cross-builder
+FROM --platform=linux/amd64 ubuntu:24.04 AS cross-builder
 
 ARG TARGET=x86_64-elf
 ARG BINUTILS_VERSION=2.45.1
@@ -24,8 +23,9 @@ ARG GCC_VERSION=15.2.0
 ARG PREFIX=/cross
 
 RUN apt-get update && apt-get install -y \
-    build-essential wget libgmp-dev libmpfr-dev \
-    libmpc-dev texinfo bison flex \
+    build-essential wget \
+    libgmp-dev libmpfr-dev libmpc-dev \
+    texinfo bison flex \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -34,22 +34,22 @@ RUN wget -q https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
     && tar xf binutils-${BINUTILS_VERSION}.tar.gz \
     && mkdir build-binutils && cd build-binutils \
     && ../binutils-${BINUTILS_VERSION}/configure \
-    --target=${TARGET} \
-    --prefix=${PREFIX} \
-    --with-sysroot \
-    --disable-nls \
-    --disable-werror \
+        --target=${TARGET} \
+        --prefix=${PREFIX} \
+        --with-sysroot \
+        --disable-nls \
+        --disable-werror \
     && make -j$(nproc) && make install
 
 RUN wget -q https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.gz \
     && tar xf gcc-${GCC_VERSION}.tar.gz \
     && mkdir build-gcc && cd build-gcc \
     && ../gcc-${GCC_VERSION}/configure \
-    --target=${TARGET} \
-    --prefix=${PREFIX} \
-    --disable-nls \
-    --enable-languages=c,c++ \
-    --without-headers \
+        --target=${TARGET} \
+        --prefix=${PREFIX} \
+        --disable-nls \
+        --enable-languages=c,c++ \
+        --without-headers \
     && make -j$(nproc) all-gcc all-target-libgcc \
     && make install-gcc install-target-libgcc
 
@@ -57,28 +57,20 @@ RUN wget -q https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.ta
 # Stage 3: Final unified image
 # ──────────────────────────────────────────────────────────────────────────────
 
-FROM ubuntu:24.04
+FROM --platform=linux/amd64 ubuntu:24.04
 
 RUN apt-get update && apt-get install -y \
     gcc binutils make \
-    build-essential wget libgmp-dev libmpfr-dev \
-    libmpc-dev texinfo bison flex \
-    bear git \
+    bear git gdb \
     && rm -rf /var/lib/apt/lists/*
 
-# gnu-efi (bootloader toolchain)
 COPY --from=gnu-efi-builder /gnu-efi /gnu-efi
-
-# x86_64-elf cross-compiler (kernel toolchain)
-COPY --from=cross-builder /cross /cross
+COPY --from=cross-builder   /cross   /cross
 ENV PATH="/cross/bin:$PATH"
 
-# Copy both Makefiles
 COPY bootloader/bootloader.mk /build/bootloader.mk
 COPY kernel/kernel.mk         /build/kernel.mk
 
-# kernel.mk compile_commands target references /build/Makefile
-# Symlink so it resolves to kernel.mk (matches the original kernel container)
 RUN ln -s /build/kernel.mk /build/Makefile
 
 WORKDIR /workspace

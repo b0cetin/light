@@ -6,7 +6,7 @@ UNIFIED_IMAGE    := light-dev
 # ── Unified image (prepare devcontainer) ─────────────────────────────────────
 
 image:
-	docker build -t $(UNIFIED_IMAGE) -f .devcontainer/Dockerfile .
+	docker build --platform linux/amd64 -t $(UNIFIED_IMAGE) -f .devcontainer/Dockerfile .
 
 # ── Build targets (run inside devcontainer) ──────────────────────────────────
 
@@ -21,13 +21,19 @@ all: bootloader kernel
 clean:
 	rm -rf dist /tmp/bootloader-build /tmp/kernel-build
 
-# ── Run targets (run outside devcontainer) ──────────────────────────────────
+# ── Run targets ──────────────────────────────────────────────────────────────
 
-run:
-	./run.sh
+run: all
+	@echo "run" > .qemu-trigger
 
 debug:
-	DEBUG=1 ./run.sh
+	@echo "debug" > .qemu-trigger
+	@echo "Waiting for QEMU GDB server..."
+	@while ! (echo > /dev/tcp/host.docker.internal/1234) 2>/dev/null; \
+	    do sleep 0.1; done
+	@echo "GDB server ready"
 
 debug-kernel:
-	x86_64-elf-gdb dist/kernel.elf -ex "target remote localhost:1234" -ex "continue"
+	x86_64-elf-gdb dist/kernel.elf \
+	    -ex "target remote host.docker.internal:1234" \
+	    -ex "continue"

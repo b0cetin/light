@@ -3,3 +3,7 @@
 
 *.o
 /fat
+/dist
+
+/qemu
+.DS_Store
