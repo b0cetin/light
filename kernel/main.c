@@ -15,7 +15,6 @@
 
 void kernel_main(BootInfo *boot_info) {
     kernel_println("Switched to kernel stack.");
-
     gdt_init();
     idt_init();
 
@@ -34,6 +33,7 @@ void kernel_main(BootInfo *boot_info) {
     kernel_println("CPU vendor: %s", vendor);
 
     cpuid_check_apic() ? kernel_println("APIC is supported.") : kernel_println("APIC is not supported.");
+    cpuid_check_msr() ? kernel_println("MSR is supported.") : kernel_println("MSR is not supported.");
 
     fb_clear(COLOR_BLACK);
     fb_draw_pixel(50, 50, COLOR_RED);

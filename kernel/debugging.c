@@ -122,5 +122,5 @@ void kernel_panic(const char *file, int line, const char *fmt, ...) {
     fb_draw_text(50, 50, "Kernel panic. Check serial.", COLOR_WHITE);
 
     while (true)
-        __asm__("hlt");
+        __asm__ volatile ("hlt");
 }

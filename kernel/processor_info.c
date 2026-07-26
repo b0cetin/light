@@ -11,6 +11,12 @@ void cpuid_read_vendor(char result[13]) {
 
 bool cpuid_check_apic() {
     uint32_t eax, edx, unused;
-    cpuid(1, &eax, &unused, &unused, &edx);
+    cpuid(CPUID_FEATURES, &eax, &unused, &unused, &edx);
     return edx & CPUID_FEAT_APIC;
+}
+
+bool cpuid_check_msr() {
+    uint32_t edx, unused;
+    cpuid(CPUID_FEATURES, &unused, &unused, &unused, &edx);
+    return edx & CPUID_FEAT_MSR;
 }

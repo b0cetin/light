@@ -1,14 +1,17 @@
 
 // BITMAP Physical Memory Manager (PMM)
 
-// TODO: PMM
-// "Highest address" displays 1 TB? Find a fix. Don't map unusable memory, and don't count it.
-// You can recycle boot services and bootloader code.
+/*
+ * This implementation skips over the address 0x0, and the first MiB.
+ * The first MiB is skipped as legacy system infastructure lives there.
+ * The 0x0 address is skipped for safe null handling. `null` is just
+ * 0x0 in disguise.
+ */
 
+#include "kernel_lib.h"
 #include "pmm.h"
 #include "bootinfo.h"
 #include "debugging.h"
-#include "kernel_lib.h"
 #include "linker_symbols.h"
 #include "types.h"
 #include "vmm.h"
@@ -51,12 +54,24 @@ uint64_t total_available_memory;
 uint64_t free_pages_remaining;
 
 void pmm_mark_free(uint64_t physical_address) {
+    if (!pmm_is_used(physical_address))
+    {
+        kernel_println("PMM: Tried to mark a page free when it was already marked: %lx", physical_address);
+        return;
+    }
+
     uint64_t page = physical_address / 4096;
     bitmap[page / 8] &= ~(1 << (page % 8));
     free_pages_remaining++;
 }
 
 void pmm_mark_used(uint64_t physical_address) {
+    if (pmm_is_used(physical_address))
+    {
+        kernel_println("PMM: Tried to mark a page used when it was already marked: %lx", physical_address);
+        return;
+    }
+
     uint64_t page = physical_address / 4096;
     bitmap[page / 8] |= (1 << (page % 8));
     free_pages_remaining--;
@@ -67,21 +82,36 @@ bool pmm_is_used(uint64_t addr) {
     return (bitmap[page / 8] & (1 << (page % 8))) != 0;
 }
 
-bool should_skip_descriptor(EFI_MEMORY_DESCRIPTOR *desc) {
-    return desc->Type == EfiReservedMemoryType || desc->Type == EfiUnusableMemory;
+static inline bool is_system_ram(EFI_MEMORY_DESCRIPTOR *desc) {
+    switch (desc->Type) {
+        case EfiLoaderCode:
+        case EfiLoaderData:
+        case EfiBootServicesCode:
+        case EfiBootServicesData:
+        case EfiRuntimeServicesCode:
+        case EfiRuntimeServicesData:
+        case EfiConventionalMemory:
+        case EfiACPIReclaimMemory:
+        case EfiACPIMemoryNVS:
+            return 1;
+        default:
+            return 0; // Ignore MMIO, Reserved, and Port Space
+    }
 }
 
 uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint64_t *out_highest_phys_addr) {
+    kernel_println("PMM: Printing out the UEFI memory map now.");
+
     uint64_t highest_phys_addr = 0;
     for (uint64_t i = 0; i < boot_info->MMapSize; i += boot_info->DescriptorSize) {
         EFI_MEMORY_DESCRIPTOR *desc = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->MMap + i);
         uint64_t end_addr = desc->PhysicalStart + desc->NumberOfPages * 4096;
 
-        if (should_skip_descriptor(desc))
+        if (!is_system_ram(desc))
             continue;
 
-        // kernel_println("(%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
-        //                desc->Attribute, desc->NumberOfPages);
+        kernel_println("PMM: (%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
+                       desc->Attribute, desc->NumberOfPages);
 
         if (end_addr > highest_phys_addr)
             highest_phys_addr = end_addr;
@@ -90,8 +120,8 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
     uint64_t bitmap_size = total_pages / 8;
 
     kernel_println("PMM: Highest physical address available: %lx", highest_phys_addr);
-    kernel_println("PMM: Total pages: %ld pages.", total_pages);
-    kernel_println("PMM: Bitmap size: %ld bytes.", bitmap_size);
+    kernel_println("PMM: Total pages: %ld pages. (%ld MiB)", total_pages, total_pages / 1024);
+    kernel_println("PMM: Bitmap size: %ld KiB.", bitmap_size / 1024);
 
     uint64_t bitmap_loc = 0;
     bool space_found = false;
@@ -148,12 +178,14 @@ void pmm_init(BootInfo *boot_info) {
     bitmap = get_bitmap_address(boot_info, &bitmap_size, &highest_physical_address_available);
 
     memset(bitmap, 0xFF, bitmap_size);
+    free_pages_remaining = 0;
 
     mark_available_pages_free(boot_info);
     total_available_memory = free_pages_remaining * 4096;
 
+    // Mark low legacy real-mode architecture segments used
     for (int i = 0; i < 16; i++) {
-        pmm_mark_used(i * 4096); // Ensure the first 16 pages are unusable.
+        pmm_mark_used(i * 4096);
     }
 
     // Lock bitmap
@@ -161,16 +193,18 @@ void pmm_init(BootInfo *boot_info) {
         pmm_mark_used(v2p((void *)bitmap) + (i * 4096));
     }
 
-    // Lock kernel // TODO: Very suspicious. Fix needed.
-    for (uint64_t i = 0; i < (get_kernel_end() - get_kernel_start() + 4095) / 4096; i++) {
-        pmm_mark_used((uint64_t)boot_info->PhysicalKernelBase + (i * 4096));
+    // Lock kernel
+    uint64_t kernel_phys_start = (uint64_t)boot_info->PhysicalKernelBase;
+    uint64_t kernel_pages = (get_kernel_end() - get_kernel_start() + 4095) / 4096;
+    for (uint64_t i = 0; i < kernel_pages; i++) {
+        uint64_t target_page = kernel_phys_start + (i * 4096);
+        if (!pmm_is_used(target_page)) pmm_mark_used(target_page);
     }
 
-    if (!pmm_is_used(v2p(bitmap)))
-        PANIC("PMM: Failed to lock bitmap!");
+    if (!pmm_is_used(v2p(bitmap))) PANIC("PMM: Failed to lock bitmap!");
+    if (!pmm_is_used((uint64_t)boot_info->PhysicalKernelBase)) PANIC("PMM: Failed to lock kernel memory!");
 
-    if (!pmm_is_used((uint64_t)boot_info->PhysicalKernelBase))
-        PANIC("PMM: Failed to lock kernel memory!");
+    kernel_println("PMM: Initialization finished.");
 }
 
 void pmm_print_stats() {

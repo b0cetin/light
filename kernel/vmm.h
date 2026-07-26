@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "types.h"
 
 typedef uint64_t PTEntry;
 
@@ -17,6 +18,8 @@ typedef uint64_t PTEntry;
 
 #define PT_ADDRESS_MASK 0x000FFFFFFFFFF000ULL // Bits 12 to 51
 
+#define PAGE_SIZE 4096
+
 void vmm_init();
 
 #define HHDM_OFFSET 0xFFFF800000000000ULL
@@ -26,3 +29,6 @@ static inline void *p2v(uint64_t phys) {
 static inline uint64_t v2p(void *virt) {
     return (uint64_t)virt - HHDM_OFFSET;
 }
+
+bool vmm_set_flags(void *virt, uint64_t flags);
+void vmm_map_mmio(uint64_t phys, uint64_t size);

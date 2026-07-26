@@ -21,11 +21,17 @@ void fb_init(BootInfo *bootInfo) {
     height = bootInfo->VerticalResolution;
     stride = bootInfo->PixelsPerScanLine;
 
-    initialized = true;
-
     kernel_println("FBG: Framebuffer location: %lx", fb);
     kernel_println("FBG: Framebuffer size: %ld", fb_size);
     kernel_println("FBG: Framebuffer dimensions: %dx%d (stride: %d)", width, height, stride);
+
+    kernel_println("FBG: Mapping framebuffer memory as MMIO...");
+    
+    vmm_map_mmio(bootInfo->PhysicalFramebufferBase, fb_size);
+
+    initialized = true;
+
+    kernel_println("FBG: Framebuffer initialized.");
 }
 
 void fb_clear(Color color) {
