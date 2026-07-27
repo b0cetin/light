@@ -209,7 +209,7 @@ void pmm_init(BootInfo *boot_info) {
 
 void pmm_print_stats() {
     kernel_println("--- PMM Statistics ---");
-    kernel_println("Highest addr: %lx (%ld MiB)", highest_physical_address_available, highest_physical_address_available / 4096 / 4096);
+    kernel_println("Highest addr: %lx (%ld MiB)", highest_physical_address_available, highest_physical_address_available / 1024 / 1024);
     kernel_println("Total RAM:    %ld MB", total_available_memory / 1024 / 1024);
     kernel_println("Free RAM:     %ld MB", free_pages_remaining * 4 / 1024);
 }
@@ -230,11 +230,52 @@ uint64_t pmm_alloc_page() {
     return 0; // Out of memory!
 }
 
+uint64_t pmm_alloc(int page_count) {
+    int free_count = 0;
+    uint64_t last_free_addr = 0;
+
+    for (uint64_t byte = 0; byte < bitmap_size; byte++) {
+        if (bitmap[byte] == 0xFF) {
+            free_count = 0;
+            continue;
+        }
+
+        for (int bit = 0; bit < 8; bit++) {
+            if (!(bitmap[byte] & (1 << bit))) {
+                last_free_addr = (byte * 8 + bit) * 4096;
+                free_count++;
+
+                if (free_count >= page_count) {
+                    for (int i = 0; i < free_count; i++) {
+                        pmm_mark_used(last_free_addr - 4096 * i);
+                    }
+
+                    return last_free_addr - 4096 * (page_count - 1);
+                }
+            }
+            else {
+                free_count = 0;
+            }
+        }
+    }
+
+    return 0; // Out of memory!
+}
+
 void pmm_free_page(uint64_t physical_address) {
     if (physical_address == 0 || (uint64_t)physical_address >= highest_physical_address_available)
         return;
 
-    pmm_mark_free((uint64_t)physical_address);
+    pmm_mark_free(physical_address);
+}
+
+void pmm_free(uint64_t physical_address, int page_count) {
+    if (physical_address == 0)
+        return;
+
+    for (int i = 0; i < page_count; i++) {
+        pmm_mark_free(physical_address + 4096 * i);
+    }
 }
 
 uint8_t *pmm_get_bitmap() {

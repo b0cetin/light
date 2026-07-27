@@ -1,7 +1,9 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
-void *malloc(uint64_t size);
-void free(void *ptr);
+void alloc_init();
+void *kmalloc(size_t size);
+void kfree(void *ptr);

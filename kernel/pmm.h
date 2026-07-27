@@ -19,4 +19,7 @@ uint64_t pmm_get_available_memory_size();
 void pmm_print_stats();
 
 uint64_t pmm_alloc_page();
+uint64_t pmm_alloc(int page_count);
+
 void pmm_free_page(uint64_t physical_address);
+void pmm_free(uint64_t physical_address, int page_count);

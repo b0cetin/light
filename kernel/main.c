@@ -1,4 +1,5 @@
 
+#include "allocator.h"
 #include "bootinfo.h"
 #include "debugging.h"
 #include "fb_graphics.h"
@@ -20,6 +21,10 @@ void kernel_main(BootInfo *boot_info) {
 
     pmm_init(boot_info);
     vmm_init();
+
+    pmm_print_stats();
+
+    alloc_init();
 
     fb_init(boot_info);
 

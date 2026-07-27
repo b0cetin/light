@@ -9,7 +9,7 @@ void gp_fault() {
 }
 
 void page_fault(InterruptRegisters *regs) {
-    kernel_println("Page Fault!");
+    kernel_println("Page fault!\n");
 
     // For Page Faults, the CR2 register holds the address that caused the crash
     uint64_t fault_addr;
@@ -23,6 +23,8 @@ void page_fault(InterruptRegisters *regs) {
     kernel_println("RWrite:  %d     INSTRFetch: %d     ProtectKey: %d", (error_code & 0b1000) > 0 ? 1 : 0, (error_code & 0b10000) > 0 ? 1 : 0,
                    (error_code & 0b100000) > 0 ? 1 : 0);
     kernel_println("ShStack: %d     SGX:        %d", (error_code & 0b1000000) > 0 ? 1 : 0, (error_code & 0x0E) > 0 ? 1 : 0);
+    kernel_println("\nSGX: Software Guard Extensions");
+    kernel_println("If this bit is set, it is most likely because the software tried to access unmapped memory.");
 }
 
 void handle_cpu_exception(InterruptRegisters *regs) {
