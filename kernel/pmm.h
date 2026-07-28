@@ -5,8 +5,6 @@
 #include "types.h"
 #include <stdint.h>
 
-void pmm_mark_free(uint64_t physical_address);
-void pmm_mark_used(uint64_t physical_address);
 bool pmm_is_used(uint64_t physical_address);
 
 void pmm_init(BootInfo *boot_info);

@@ -55,6 +55,7 @@ EFI_STATUS get_gop(EFI_GRAPHICS_OUTPUT_PROTOCOL **gop) {
     if (EFI_ERROR(status)) {
         Print(L"Unable to locate GOP: %r\n", status);
     }
+
     return status;
 }
 
@@ -67,6 +68,8 @@ void set_gop_into_boot_info(BootInfo *bootInfo) {
         bootInfo->HorizontalResolution = gop->Mode->Info->HorizontalResolution;
         bootInfo->VerticalResolution = gop->Mode->Info->VerticalResolution;
         bootInfo->PixelsPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+
+        Print(L"Framebuffer base: %llx\n", bootInfo->PhysicalFramebufferBase);
     }
 }
 

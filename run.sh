@@ -13,6 +13,8 @@ QEMU_ARGS=(
   -drive if=pflash,format=raw,readonly=on,file=qemu/edk2-x86_64-code.fd
   -drive if=pflash,format=raw,file=qemu/ovmf-vars.fd
   -drive format=raw,file=fat:rw:fat
+  -vga none
+  -device virtio-vga
   -net none
   -d guest_errors
   -serial stdio

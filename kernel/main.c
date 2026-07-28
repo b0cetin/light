@@ -5,6 +5,7 @@
 #include "fb_graphics.h"
 #include "gdt.h"
 #include "idt.h"
+#include "msr.h"
 #include "pic.h"
 #include "pit.h"
 #include "pmm.h"
@@ -14,13 +15,22 @@
 #include "vmm.h"
 #include <stdint.h>
 
+// 16KB stack: usually enough for whatever will happen, increase if necessary
+uint8_t __attribute__((aligned(16))) kernel_stack[16384];
+// Aligned to 16 bytes for the System V ABI
+void *kernel_stack_top = (void *)((uint64_t)kernel_stack + sizeof(kernel_stack));
+
+extern void set_stack_and_jump(void *top, BootInfo *boot_info, void (*kernel_main)(BootInfo *boot_info));
+
 void kernel_main(BootInfo *boot_info) {
     kernel_println("Switched to kernel stack.");
-    gdt_init();
+    gdt_init(kernel_stack_top);
     idt_init();
 
     pmm_init(boot_info);
     vmm_init();
+
+    msr_ensure();
 
     pmm_print_stats();
 
@@ -38,13 +48,10 @@ void kernel_main(BootInfo *boot_info) {
     kernel_println("CPU vendor: %s", vendor);
 
     cpuid_check_apic() ? kernel_println("APIC is supported.") : kernel_println("APIC is not supported.");
-    cpuid_check_msr() ? kernel_println("MSR is supported.") : kernel_println("MSR is not supported.");
 
     fb_clear(COLOR_BLACK);
-    fb_draw_pixel(50, 50, COLOR_RED);
-    fb_draw_rect(100, 100, 50, 50, COLOR_GREEN);
 
-    fb_draw_text(50, 500, "Hello, world!", COLOR_WHITE);
+    fb_draw_text(fb_width() / 2 - 20, fb_height() / 2 - 4, "light", COLOR_WHITE);
 
     pmm_print_stats();
 
@@ -52,13 +59,6 @@ void kernel_main(BootInfo *boot_info) {
         __asm__ volatile("hlt");
     }
 }
-
-// 16KB stack: usually enough for whatever will happen, increase if necessary
-uint8_t kernel_stack[16384];
-// Aligned to 16 bytes for the System V ABI
-void *kernel_stack_top = (void *)((uint64_t)kernel_stack + sizeof(kernel_stack));
-
-extern void set_stack_and_jump(void *top, BootInfo *boot_info, void (*kernel_main)(BootInfo *boot_info));
 
 void _start(BootInfo *boot_info) {
     init_serial();

@@ -24,3 +24,6 @@ void fb_draw_text(uint64_t x, uint64_t y, const char *text, Color color);
 static inline Color rgb_to_color(uint8_t r, uint8_t g, uint8_t b) {
     return (r << 16) | (g << 8) | b;
 }
+
+uint32_t fb_width();
+uint32_t fb_height();

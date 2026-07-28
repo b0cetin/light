@@ -14,7 +14,20 @@ uint32_t stride;
 
 bool initialized;
 
+
+uint32_t fb_width() {
+    return width;
+}
+uint32_t fb_height() {
+    return height;
+}
+
 void fb_init(BootInfo *bootInfo) {
+    if (bootInfo->PhysicalFramebufferBase == 0) {
+        kernel_println("FBG: There is no framebuffer available.");
+        return;
+    }
+
     fb = p2v(bootInfo->PhysicalFramebufferBase);
     fb_size = bootInfo->FramebufferSize;
     width = bootInfo->HorizontalResolution;
@@ -27,7 +40,7 @@ void fb_init(BootInfo *bootInfo) {
 
     kernel_println("FBG: Mapping framebuffer memory as MMIO...");
     
-    vmm_map_mmio(bootInfo->PhysicalFramebufferBase, fb_size);
+    vmm_kmap_mmio(bootInfo->PhysicalFramebufferBase, fb_size);
 
     initialized = true;
 

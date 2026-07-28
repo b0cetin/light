@@ -75,7 +75,7 @@ uint64_t heap_capacity = 0;
 void alloc_init() {
     kernel_println("ALLOC: Initializing heap memory...");
 
-    heap_capacity = 4096 * 5;
+    heap_capacity = 4096 * 256;
     heap_size = sizeof(BlockHeader);
 
     kernel_println("ALLOC: Initial heap capacity: %ld pages", heap_capacity / 4096);

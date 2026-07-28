@@ -37,7 +37,7 @@ void handle_cpu_exception(InterruptRegisters *regs) {
     case EXCEPTION_INVALID_OPCODE:
         kernel_println("Invalid Opcode: Tried to execute an invalid or undefined opcode, or an instruction with invalid prefixes.");
         break;
-    case EXCEPTION_DOUBLE_FAULT:
+    case EXCEPTION_DOUBLE_FAULT: // A good practise is to allocate some custom unique stack for the function using IST=1 and TSS.
         PANIC("Double Fault: A CPU exception wasn't handled by the IDT, or calling exception handler failed. Unrecoverable.");
         break;
     case EXCEPTION_GENERAL_PROTECTION_FAULT:

@@ -2,9 +2,8 @@
 #pragma once
 
 #include <stdint.h>
-#include "types.h"
 
-typedef uint64_t PTEntry;
+typedef uint64_t PLM4;
 
 #define PT_PRESENT (1ULL << 0)
 #define PT_RW (1ULL << 1)   // Read/Write
@@ -30,5 +29,11 @@ static inline uint64_t v2p(void *virt) {
     return (uint64_t)virt - HHDM_OFFSET;
 }
 
-bool vmm_set_flags(void *virt, uint64_t flags);
-void vmm_map_mmio(uint64_t phys, uint64_t size);
+void vmm_map(PLM4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+void vmm_kmap_mmio(uint64_t phys, uint64_t size);
+
+PLM4 *vmm_create_user_address_space();
+void vmm_destroy_user_address_space(PLM4 *plm4);
+
+void vmm_switch_to_user_address_space(PLM4 *plm4);
+void vmm_switch_to_kernel_address_space();
