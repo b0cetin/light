@@ -61,7 +61,7 @@ void vmm_map(PLM4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
 
     uint64_t *pt = get_next_level(pd, pd_idx);
 
-    pt[pt_idx] = (phys & PAGE_4KB_MASK) | flags;
+    pt[pt_idx] = (phys & PAGE_4KB_MASK) | flags | PT_PRESENT;
 
     invlpg(virt); // Invalidate CPU caching.
 }

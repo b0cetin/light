@@ -12,6 +12,8 @@
 #include "processor_info.h"
 #include "ps2_keyboard_driver.h"
 #include "serial.h"
+#include "syscalls.h"
+#include "userspace.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -30,8 +32,6 @@ void kernel_main(BootInfo *boot_info) {
     pmm_init(boot_info);
     vmm_init();
 
-    msr_ensure();
-
     pmm_print_stats();
 
     alloc_init();
@@ -42,6 +42,9 @@ void kernel_main(BootInfo *boot_info) {
     ps2_keyboard_init();
     pit_init();
     enable_interrupts();
+
+    msr_ensure();
+    syscalls_init(kernel_stack_top);
 
     char vendor[13];
     cpuid_read_vendor(vendor);
@@ -55,9 +58,13 @@ void kernel_main(BootInfo *boot_info) {
 
     pmm_print_stats();
 
-    while (1) {
-        __asm__ volatile("hlt");
-    }
+    kernel_println("Kernel init ended. Switching to userspace.");
+
+    start_first_user_process();
+
+    // while (1) {
+    //     __asm__ volatile("hlt");
+    // }
 }
 
 void _start(BootInfo *boot_info) {
