@@ -12,15 +12,43 @@ void *user_stack_top = (void *)((uint64_t)user_stack + sizeof(user_stack));
 // Sample Ring 3 code
 void user_main(void) {
     // We are officially in Ring 3 now!
-    
+
     // Trigger a system call
     asm volatile (
-        "movq $67, %%rax\n"     // SYS_WRITE
+        "movq $10, %%rax\n"
         "syscall\n"
         :
         :
-        : "rax", "rdi", "rsi", "rcx", "r11"
+        : "rax", "rcx", "r11", "memory"
     );
+
+    // Trigger a system call
+    asm volatile (
+        "movq $18, %%rax\n"
+        "syscall\n"
+        :
+        :
+        : "rax", "rcx", "r11", "memory"
+    );
+
+    // Trigger a system call
+    asm volatile (
+        "movq $50, %%rax\n"
+        "syscall\n"
+        :
+        :
+        : "rax", "rcx", "r11", "memory"
+    );
+
+    // for (uint64_t i = 0; i < 100; i++) {
+    //     // Trigger a system call
+    //     asm volatile (
+    //         "syscall"
+    //         :
+    //         : "a" (i)
+    //         : "rcx", "r11", "memory"
+    //     );
+    // }
 
     while (1) {}
 }

@@ -2,8 +2,8 @@
 TARGET  := x86_64-elf
 CC      := $(TARGET)-gcc
 LD      := $(TARGET)-ld
-OBJCOPY := $(TARGET)-objcopy
-LIBGCC  := $(shell $(CC) -print-libgcc-file-name)
+# OBJCOPY := $(TARGET)-objcopy
+# LIBGCC  := $(shell $(CC) -print-libgcc-file-name)
 
 OUT := ../dist
 TMP := /tmp/kernel-build
@@ -57,7 +57,7 @@ $(TMP)/%.o: %.s | $(TMP)
 $(OUT)/kernel.elf: $(OBJS)
 	@echo "  LD    $(notdir $@)"
 	$(Q)mkdir -p $(OUT)
-	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBGCC)
+	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS)
 	@echo "  ✓  $(OUT)/kernel.elf"
 
 $(TMP):

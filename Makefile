@@ -1,7 +1,7 @@
 UNIFIED_IMAGE    := light-dev
 
 .PHONY: image
-.PHONY: all bootloader kernel run debug debug-kernel clean
+.PHONY: all bootloader kernel user run debug debug-kernel clean
 
 # ── Unified image (prepare devcontainer) ─────────────────────────────────────
 
@@ -16,10 +16,13 @@ bootloader:
 kernel:
 	make -C kernel -f kernel.mk
 
-all: bootloader kernel
+user:
+	make -C user/test all
+
+all: bootloader kernel user
 
 clean:
-	rm -rf dist /tmp/bootloader-build /tmp/kernel-build
+	rm -rf dist /tmp/bootloader-build /tmp/kernel-build /tmp/user-build
 
 # ── Run targets ──────────────────────────────────────────────────────────────
 
