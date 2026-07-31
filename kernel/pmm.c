@@ -103,14 +103,14 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
     kernel_println("PMM: Printing out the UEFI memory map now.");
 
     uint64_t highest_phys_addr = 0;
-    for (uint64_t i = 0; i < boot_info->MMapSize; i += boot_info->DescriptorSize) {
-        EFI_MEMORY_DESCRIPTOR *desc = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->MMap + i);
+    for (uint64_t i = 0; i < boot_info->memory_map.MMapSize; i += boot_info->memory_map.DescriptorSize) {
+        EFI_MEMORY_DESCRIPTOR *desc = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->memory_map.PhysicalMMapBase + i);
         uint64_t end_addr = desc->PhysicalStart + desc->NumberOfPages * 4096;
 
         if (!is_system_ram(desc))
             continue;
 
-        kernel_println("PMM: (%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
+        kernel_println("PMM: (%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->memory_map.DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
                        desc->Attribute, desc->NumberOfPages);
 
         if (end_addr > highest_phys_addr)
@@ -126,8 +126,8 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
     uint64_t bitmap_loc = 0;
     bool space_found = false;
 
-    for (uint64_t i = 0; i < boot_info->MMapSize; i += boot_info->DescriptorSize) {
-        EFI_MEMORY_DESCRIPTOR *descriptor = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->MMap + i);
+    for (uint64_t i = 0; i < boot_info->memory_map.MMapSize; i += boot_info->memory_map.DescriptorSize) {
+        EFI_MEMORY_DESCRIPTOR *descriptor = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->memory_map.PhysicalMMapBase + i);
 
         if (descriptor->PhysicalStart == 0)
             continue;
@@ -157,8 +157,8 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
 void mark_available_pages_free(BootInfo *boot_info) {
     uint64_t total_freed = 0;
 
-    for (uint64_t i = 0; i < boot_info->MMapSize; i += boot_info->DescriptorSize) {
-        EFI_MEMORY_DESCRIPTOR *descriptor = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->MMap + i);
+    for (uint64_t i = 0; i < boot_info->memory_map.MMapSize; i += boot_info->memory_map.DescriptorSize) {
+        EFI_MEMORY_DESCRIPTOR *descriptor = (EFI_MEMORY_DESCRIPTOR *)((uint64_t)boot_info->memory_map.PhysicalMMapBase + i);
 
         if (descriptor->Type != EfiConventionalMemory)
             continue;
@@ -175,6 +175,9 @@ void mark_available_pages_free(BootInfo *boot_info) {
 }
 
 void pmm_init(BootInfo *boot_info) {
+    // NOTE: We can use the physical addresses here as the bootloader has
+    // already set us up with an identity & higher half mapping.
+
     bitmap = get_bitmap_address(boot_info, &bitmap_size, &highest_physical_address_available);
 
     memset(bitmap, 0xFF, bitmap_size);
@@ -193,8 +196,12 @@ void pmm_init(BootInfo *boot_info) {
         pmm_mark_used(v2p((void *)bitmap) + (i * 4096));
     }
 
+    // NOTE: This kernel locking is technically unnecessary as the kernel
+    // is loaded in EfiLoaderData (which is already locked), but that
+    // detail may change in the future so this code remains as redundancy.
+
     // Lock kernel
-    uint64_t kernel_phys_start = (uint64_t)boot_info->PhysicalKernelBase;
+    uint64_t kernel_phys_start = get_kernel_start() - HHDM_OFFSET;
     uint64_t kernel_pages = (get_kernel_end() - get_kernel_start() + 4095) / 4096;
     for (uint64_t i = 0; i < kernel_pages; i++) {
         uint64_t target_page = kernel_phys_start + (i * 4096);
@@ -202,7 +209,7 @@ void pmm_init(BootInfo *boot_info) {
     }
 
     if (!pmm_is_used(v2p(bitmap))) PANIC("PMM: Failed to lock bitmap!");
-    if (!pmm_is_used((uint64_t)boot_info->PhysicalKernelBase)) PANIC("PMM: Failed to lock kernel memory!");
+    if (!pmm_is_used(get_kernel_start() - HHDM_OFFSET)) PANIC("PMM: Failed to lock kernel memory!");
 
     kernel_println("PMM: Initialization finished.");
 }

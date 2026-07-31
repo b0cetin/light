@@ -3,4 +3,11 @@
 
 #include <efi.h>
 
-void read_kernel_into_buffer(EFI_HANDLE ImageHandle, void **kernel_buf, UINT64 *kernel_size);
+typedef struct ReadResult {
+    EFI_STATUS status;
+    void *location;
+    UINT64 size;
+} ReadResult;
+
+EFI_STATUS open_volume(EFI_HANDLE image, EFI_FILE_HANDLE *out_handle);
+ReadResult read_into_buffer(CHAR16 *path, EFI_FILE_HANDLE volume);

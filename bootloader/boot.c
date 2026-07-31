@@ -42,9 +42,9 @@ void exit_boot_services(EFI_HANDLE ImageHandle, BootInfo *bootInfo) {
         status = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, MapKey);
     } while (EFI_ERROR(status));
 
-    bootInfo->MMap = MemoryMap;
-    bootInfo->MMapSize = MemoryMapSize;
-    bootInfo->DescriptorSize = DescriptorSize;
+    bootInfo->memory_map.PhysicalMMapBase = (uint64_t) MemoryMap;
+    bootInfo->memory_map.MMapSize = MemoryMapSize;
+    bootInfo->memory_map.DescriptorSize = DescriptorSize;
 }
 
 EFI_STATUS get_gop(EFI_GRAPHICS_OUTPUT_PROTOCOL **gop) {
@@ -59,47 +59,104 @@ EFI_STATUS get_gop(EFI_GRAPHICS_OUTPUT_PROTOCOL **gop) {
     return status;
 }
 
-void set_gop_into_boot_info(BootInfo *bootInfo) {
-    EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+void set_gop_into_boot_info(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, BootInfo *bootInfo) {
+    bootInfo->framebuffer.PhysicalFramebufferBase = gop->Mode->FrameBufferBase;
+    bootInfo->framebuffer.FramebufferSize = gop->Mode->FrameBufferSize;
+    bootInfo->framebuffer.HorizontalResolution = gop->Mode->Info->HorizontalResolution;
+    bootInfo->framebuffer.VerticalResolution = gop->Mode->Info->VerticalResolution;
+    bootInfo->framebuffer.PixelsPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+}
 
-    if (get_gop(&gop) == EFI_SUCCESS) {
-        bootInfo->PhysicalFramebufferBase = gop->Mode->FrameBufferBase;
-        bootInfo->FramebufferSize = gop->Mode->FrameBufferSize;
-        bootInfo->HorizontalResolution = gop->Mode->Info->HorizontalResolution;
-        bootInfo->VerticalResolution = gop->Mode->Info->VerticalResolution;
-        bootInfo->PixelsPerScanLine = gop->Mode->Info->PixelsPerScanLine;
-
-        Print(L"Framebuffer base: %llx\n", bootInfo->PhysicalFramebufferBase);
+ReadResult read_kernel_file(EFI_FILE_HANDLE volume) {
+    ReadResult read_result = read_into_buffer(L"\\kernel\\kernel.elf", volume);
+    if (EFI_ERROR(read_result.status))
+    {
+        Print(L"Error reading kernel ELF file.\n");
+        while (1) {}
     }
+
+    return read_result;
+}
+
+unsigned int get_size_of_string(const CHAR16 *str) {
+    unsigned int size = 0;
+    while (str[size] != '\0') {
+        size++;
+    }
+    return size; // returns number of bytes
+}
+
+ReadResult read_file(EFI_FILE_HANDLE volume, CHAR16 *path, ReadModule read_modules[READ_MODULE_COUNT]) {
+    ReadResult read_result = read_into_buffer(path, volume);
+    if (EFI_ERROR(read_result.status))
+    {
+        Print(L"Error reading ELF file.\n");
+        while (1) {}
+    }
+
+    int free_module = -1;
+
+    for (int i = 0; i < READ_MODULE_COUNT; i++) {
+        if (read_modules[i].is_read)
+            continue;
+
+        free_module = i;
+        break;
+    }
+
+    if (free_module == -1) {
+        Print(L"Tried to load too many files!\n");
+        while (1) {}
+    }
+
+    read_modules[free_module].is_read = 1;
+    read_modules[free_module].physical_location = (uint64_t) read_result.location;
+    read_modules[free_module].size = read_result.size;
+
+    uint32_t path_size = get_size_of_string(path);
+
+    if (path_size > READ_MODULE_PATH_SIZE) {
+        Print(L"File size is too big! %d > %d\n", path_size, READ_MODULE_PATH_SIZE);
+        while (1) {}
+    }
+
+    uefi_call_wrapper(BS->CopyMem, 3, read_modules[free_module].path, path, path_size * 2);
+
+    return read_result;
 }
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     InitializeLib(ImageHandle, SystemTable);
 
-    uint64_t kernel_size;
-    void *kernel_buf;
+    EFI_FILE_HANDLE volume;
+    if(EFI_ERROR(open_volume(ImageHandle, &volume)))
+        while(1) {}
 
-    Print(L"Reading kernel...\n");
-    read_kernel_into_buffer(ImageHandle, &kernel_buf, &kernel_size);
+    ReadModule read_modules[READ_MODULE_COUNT] = {0};
 
-    Print(L"Beginning loading...\n");
-    UINT64 kernel_entry_ptr = load_elf_file(kernel_buf);
+    ReadResult kernel_result = read_kernel_file(volume);
+    read_file(volume, L"\\user\\test.elf", read_modules);
 
-    Print(L"Beginning custom memory mapping for high offset...\n");
-    calculate_custom_virtual_mappings();
+    Print(L"Loading kernel elf file...\n");
+    UINT64 kernel_entry_ptr = load_elf_file(kernel_result.location);
+
+    Print(L"Freeing kernel elf file...\n");
+    FreePool(kernel_result.location);
 
     Print(L"Beginning boot info construction...\n");
     BootInfo bootInfo;
+    uefi_call_wrapper(BS->CopyMem, 3, bootInfo.modules, read_modules, sizeof(read_modules));
 
-    set_gop_into_boot_info(&bootInfo);
+    EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+    if (EFI_ERROR(get_gop(&gop)))
+        while(1) {}
+
+    set_gop_into_boot_info(gop, &bootInfo);
+
+    init_mapping();
 
     Print(L"Jumping to kernel entry at 0x%llx\n", kernel_entry_ptr);
-
     exit_boot_services(ImageHandle, &bootInfo);
-
-    bootInfo.PhysicalKernelBase = kernel_buf;
-
-    enable_custom_virtual_mappings();
 
     BootInfo *boot_info_ptr = (BootInfo *)((uint64_t)&bootInfo + HHDM_OFFSET);
 

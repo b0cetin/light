@@ -1,5 +1,6 @@
 
 #include "allocator.h"
+#include "boot_modules.h"
 #include "bootinfo.h"
 #include "debugging.h"
 #include "fb_graphics.h"
@@ -26,6 +27,9 @@ extern void set_stack_and_jump(void *top, BootInfo *boot_info, void (*kernel_mai
 
 void kernel_main(BootInfo *boot_info) {
     kernel_println("Switched to kernel stack.");
+
+    boot_modules_init(boot_info);
+
     gdt_init(kernel_stack_top);
     idt_init();
 
@@ -59,6 +63,8 @@ void kernel_main(BootInfo *boot_info) {
     pmm_print_stats();
 
     kernel_println("Kernel init ended. Switching to userspace.");
+
+    for (int i = 0; i < 40; i++) kernel_printf("\n");
 
     start_first_user_process();
 

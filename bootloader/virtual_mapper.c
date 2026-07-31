@@ -5,8 +5,6 @@
 #include <elf.h>
 #include <stdint.h>
 
-typedef uint64_t PTEntry;
-
 #define PT_PRESENT (1ULL << 0)
 #define PT_RW (1ULL << 1)   // Read/Write
 #define PT_USER (1ULL << 2) // User Mode
@@ -81,16 +79,13 @@ void map_2mb_range_with_offset(uint64_t *pml4, uint64_t start, uint64_t size, ui
 
 uint64_t *pml4;
 
-void calculate_custom_virtual_mappings() {
+void init_mapping() {
     pml4 = (UINT64 *)allocate_page();
 
     uint64_t last_address = (uint64_t)4 * 4096 * 4096 * 4096; // 4 GiB
-    Print(L"Identity mapping...\n");
     map_2mb_range_with_offset(pml4, 0, last_address, 0, PT_PRESENT | PT_RW);
-    Print(L"HHDM mapping...\n");
     map_2mb_range_with_offset(pml4, 0, last_address, HHDM_OFFSET, PT_PRESENT | PT_RW);
-}
 
-void enable_custom_virtual_mappings() {
+    Print(L"Loading identity & higher half mapping into CR3...\n");
     load_cr3((uint64_t)pml4);
 }

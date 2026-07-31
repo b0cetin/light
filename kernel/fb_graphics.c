@@ -23,16 +23,16 @@ uint32_t fb_height() {
 }
 
 void fb_init(BootInfo *bootInfo) {
-    if (bootInfo->PhysicalFramebufferBase == 0) {
+    if (bootInfo->framebuffer.PhysicalFramebufferBase == 0) {
         kernel_println("FBG: There is no framebuffer available.");
         return;
     }
 
-    fb = p2v(bootInfo->PhysicalFramebufferBase);
-    fb_size = bootInfo->FramebufferSize;
-    width = bootInfo->HorizontalResolution;
-    height = bootInfo->VerticalResolution;
-    stride = bootInfo->PixelsPerScanLine;
+    fb = p2v(bootInfo->framebuffer.PhysicalFramebufferBase);
+    fb_size = bootInfo->framebuffer.FramebufferSize;
+    width = bootInfo->framebuffer.HorizontalResolution;
+    height = bootInfo->framebuffer.VerticalResolution;
+    stride = bootInfo->framebuffer.PixelsPerScanLine;
 
     kernel_println("FBG: Framebuffer location: %lx", fb);
     kernel_println("FBG: Framebuffer size: %ld", fb_size);
@@ -40,7 +40,7 @@ void fb_init(BootInfo *bootInfo) {
 
     kernel_println("FBG: Mapping framebuffer memory as MMIO...");
     
-    vmm_kmap_mmio(bootInfo->PhysicalFramebufferBase, fb_size);
+    vmm_kmap_mmio(bootInfo->framebuffer.PhysicalFramebufferBase, fb_size);
 
     initialized = true;
 

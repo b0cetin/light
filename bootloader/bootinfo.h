@@ -3,16 +3,30 @@
 
 #include <stdint.h>
 
+#define READ_MODULE_PATH_SIZE 32
+#define READ_MODULE_COUNT 16
+
 typedef struct {
-    uint64_t PhysicalFramebufferBase;
-    uint64_t FramebufferSize;
-    uint32_t HorizontalResolution;
-    uint32_t VerticalResolution;
-    uint32_t PixelsPerScanLine;
+    uint8_t is_read;
+    uint16_t path[READ_MODULE_PATH_SIZE];
+    uint64_t physical_location;
+    uint64_t size;
+} ReadModule;
 
-    void *MMap;
-    uint64_t MMapSize;
-    uint64_t DescriptorSize;
+typedef struct {
+    struct {
+        uint64_t PhysicalFramebufferBase;
+        uint64_t FramebufferSize;
+        uint32_t HorizontalResolution;
+        uint32_t VerticalResolution;
+        uint32_t PixelsPerScanLine;
+    } framebuffer;
 
-    void *PhysicalKernelBase;
+    struct {
+        uint64_t PhysicalMMapBase;
+        uint64_t MMapSize;
+        uint64_t DescriptorSize;
+    } memory_map;
+
+    ReadModule modules[READ_MODULE_COUNT];
 } BootInfo;

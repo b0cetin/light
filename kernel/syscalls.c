@@ -2,6 +2,7 @@
 #include "syscalls.h"
 #include "debugging.h"
 #include "msr.h"
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -42,9 +43,20 @@ void syscalls_init(void *kernel_stack_top) {
     kernel_println("SYSCALLS initialized.");
 }
 
+int64_t sys_print(const char* buf) {
+    kernel_printf(buf);
+    return 0;
+}
+
 int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
                           uint64_t arg3, uint64_t arg4, uint64_t arg5)
 {
-    kernel_println("SYSCALLS: Syscall %ld called.", call_number);
+    switch (call_number) {
+        case 0:
+            return sys_print((char*) arg1);
+        default:
+            kernel_println("SYSCALLS: Syscall %ld called.", call_number);
+            return -1;
+    }
     return 0;
 }
