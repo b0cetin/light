@@ -76,7 +76,7 @@ typedef struct __attribute__((packed)) {
     uint64_t data_offset;
 
     uint64_t virtual_address;
-    uint64_t physical_address; // On environments where physical address is relevant.
+    uint64_t physical_address; // On environments where physical address is relevant. (not here)
 
     uint64_t file_size;
     uint64_t mem_size;

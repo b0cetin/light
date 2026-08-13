@@ -17,5 +17,12 @@ int64_t sys_print(const char* buf) {
 int main() {
     sys_print("This is a message from userspace.\n");
 
+    asm volatile (
+        "syscall\n"
+        :
+        : "a" (67)
+        :  "rcx", "r11", "memory"
+    );
+
     while (1) {}
 }

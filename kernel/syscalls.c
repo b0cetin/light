@@ -1,6 +1,8 @@
 
 #include "syscalls.h"
+#include "allocator.h"
 #include "debugging.h"
+#include "kernel_lib.h"
 #include "msr.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -23,7 +25,7 @@ void syscalls_init(void *kernel_stack_top) {
     // [ 63 : USER Selector Base : 48 ] [ 47 : KERNEL Selector Base : 32 ]
     // [ 31 : UNUSED IN 64-bit : 0 ]
 
-    // NOTE: SYSCALL/SYSRET are very unsafe instructions. THey are unsafe
+    // NOTE: SYSCALL/SYSRET are very unsafe instructions. They are unsafe
     // to ensure speed. GDT has to be set up in an exact way for them
     // to be used.
     uint64_t star = ((uint64_t) 0x0008 << 32) | ((uint64_t) 0x0010 << 48);
@@ -43,8 +45,18 @@ void syscalls_init(void *kernel_stack_top) {
     kernel_println("SYSCALLS initialized.");
 }
 
+#define PRINT_RREFIX "USER: "
 int64_t sys_print(const char* buf) {
-    kernel_printf(buf);
+    size_t len = strnlen(buf, UINT8_MAX);
+
+    char *str = kmalloc(len + sizeof(PRINT_RREFIX) + 1);
+
+    memcpy(str, PRINT_RREFIX, sizeof(PRINT_RREFIX));
+    memcpy(str + sizeof(PRINT_RREFIX) - 1, buf, len);
+
+    kernel_printf(str);
+
+    kfree(str);
     return 0;
 }
 
@@ -55,7 +67,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
         case 0:
             return sys_print((char*) arg1);
         default:
-            kernel_println("SYSCALLS: Syscall %ld called.", call_number);
+            kernel_println("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;
     }
     return 0;

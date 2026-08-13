@@ -1,5 +1,7 @@
 
 #include "kernel_lib.h"
+#include "types.h"
+#include <stddef.h>
 #include <stdint.h>
 
 void memcpy(void *dest, const void* src, uint64_t size) {
@@ -43,3 +45,12 @@ void convert_utf16_to_ascii(const uint16_t *utf16_str, char *ascii_out) {
     ascii_out[i] = '\0';
 }
 
+size_t strnlen(const char str[], size_t maxlen) {
+    if (str == null) return 0;
+
+    size_t len;
+
+    for (len = 0; len < maxlen && str[len] != '\0'; len++);
+
+    return len;
+}
