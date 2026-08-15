@@ -1,16 +1,21 @@
 
 #include "userspace.h"
+#include "allocator.h"
 #include "boot_modules.h"
+#include "bootinfo.h"
+#include "context_switching.h"
 #include "debugging.h"
 #include "elf_loader.h"
+#include "kernel_lib.h"
+#include "pit.h"
+#include "processes.h"
+#include "syscalls.h"
+#include "tss.h"
 #include "types.h"
 #include "vmm.h"
 #include <stdint.h>
 
-extern void enter_userspace(uint64_t entry_point, uint64_t user_rsp);
-
-uint8_t __attribute__((aligned(16))) user_stack[4096];
-void *user_stack_top = (void *)((uint64_t)user_stack + sizeof(user_stack));
+extern void enter_userspace(uint64_t kernel_rsp);
 
 void map_range_identically(PLM4 *pml4, uint64_t start, uint64_t size, uint64_t flags) {
     uint64_t first_page = start & ~(0xFFFULL);
@@ -28,14 +33,26 @@ void start_first_user_process(void) {
 
     void *entry_point = load_elf(user_address_space, p2v(boot_modules_get_all()->physical_location));
 
-    if (entry_point == null) {
-        vmm_destroy_user_address_space(user_address_space);
-        PANIC("Cannot load first module into userspace!");
-    }
+    if (entry_point == null) PANIC("Cannot load first module into userspace!");
 
-    vmm_map(user_address_space, v2p(user_stack_top), v2p(user_stack_top), PT_USER | PT_RW | PT_NX);
+    char* ascii_path = kmalloc(READ_MODULE_PATH_SIZE * 2);
+    convert_utf16_to_ascii(boot_modules_get_all()->path, ascii_path);
+    Process *process = process_create(entry_point, user_address_space, ascii_path);
+    kfree(ascii_path);
 
-    vmm_switch_to_user_address_space(user_address_space);
+    Thread *thread = process->threads;
 
-    enter_userspace((uint64_t) entry_point, v2p(user_stack_top));
+    void *kernel_stack_top = thread->kernel_stack_base + thread->kernel_stack_size;
+    tss_set_rsp0(kernel_stack_top);
+    syscalls_set_kernel_stack(kernel_stack_top);
+
+    kprintln("kernel_stack_top: %lx", (uint64_t) kernel_stack_top);
+
+    vmm_switch_to_user_address_space(process->cr3);
+
+    ctx_switching_set_initial_thread(thread);
+
+    pit_init();
+
+    enter_userspace(thread->kernel_rsp);
 }

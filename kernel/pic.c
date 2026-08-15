@@ -43,7 +43,7 @@ void pic_remap(int32_t offset) {
 
     pic_mask_all();
 
-    kernel_println("PIC initialized and fully masked.");
+    kprintln("PIC initialized and fully masked.");
 }
 
 void pic_set_mask(uint8_t irq_line) {
@@ -59,10 +59,12 @@ void pic_set_mask(uint8_t irq_line) {
     value = inb(port) | (1 << irq_line);
     outb(port, value);
 
-    kernel_println("PIC: Masking IRQ line %d.", irq_line);
+    kprintln("PIC: Masking IRQ line %d.", irq_line);
 }
 
 void pic_clear_mask(uint8_t irq_line) {
+    pic_send_eoi(irq_line);
+
     uint16_t port;
     uint8_t value;
 
@@ -75,7 +77,7 @@ void pic_clear_mask(uint8_t irq_line) {
     value = inb(port) & ~(1 << irq_line);
     outb(port, value);
 
-    kernel_println("PIC: Unmasking IRQ line %d.", irq_line);
+    kprintln("PIC: Unmasking IRQ line %d.", irq_line);
 }
 
 void pic_mask_all() {

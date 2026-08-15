@@ -12,4 +12,4 @@ typedef struct {
     uint8_t base_high;
 } __attribute__((packed)) GDTEntry;
 
-void gdt_init(void *kernel_stack_top);
+void gdt_init();

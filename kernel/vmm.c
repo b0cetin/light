@@ -149,7 +149,7 @@ void vmm_destroy_user_address_space(PLM4 *plm4) {
     memzero(plm4, 4096);
     pmm_free_page(v2p(plm4));
 
-    kernel_println("VMM: Destroyed user PLM4 on %lx.", plm4);
+    kprintln("VMM: Destroyed user PLM4 on %lx.", plm4);
 }
 
 void vmm_switch_to_user_address_space(PLM4 *plm4) {
@@ -168,15 +168,15 @@ void vmm_init() {
     kernel_pml4 = p2v(pml4_phys);
     memzero(kernel_pml4, PAGE_SIZE);
 
-    kernel_println("VMM: Created PML4 on %lx.", kernel_pml4);
+    kprintln("VMM: Created PML4 on %lx.", kernel_pml4);
 
     map_range_with_offset(kernel_pml4, 0, pmm_get_highest_phys_addr(), HHDM_OFFSET, PT_PRESENT | PT_RW);
-    kernel_println("VMM: Physical memory mapped to higher half with offset: %lx (%ld pages)", HHDM_OFFSET, pmm_get_highest_phys_addr() / PAGE_SIZE);
+    kprintln("VMM: Physical memory mapped to higher half with offset: %lx (%ld pages)", HHDM_OFFSET, pmm_get_highest_phys_addr() / PAGE_SIZE);
 
-    kernel_println("VMM: Loading CR3...");
+    kprintln("VMM: Loading CR3...");
     load_cr3(v2p(kernel_pml4));
 
-    kernel_println("VMM: Initialization finished.");
+    kprintln("VMM: Initialization finished.");
 }
 
 // Previous 2mb functionality has been removed.

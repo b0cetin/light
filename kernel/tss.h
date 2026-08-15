@@ -22,4 +22,5 @@ typedef struct {
     uint16_t iomap_base;  // Offset to I/O Permission Bit Map
 } __attribute__((packed)) TSS64;
 
-void tss_init(GDTEntry *gdt, void *kernel_stack_top);
+void tss_init(GDTEntry *gdt);
+void tss_set_rsp0(void *kernel_stack_top);

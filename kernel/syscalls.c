@@ -16,10 +16,10 @@ CPULocalStruct local_cpu_data;
 
 extern void syscall_entry();
 
-void syscalls_init(void *kernel_stack_top) {
+void syscalls_init() {
     uint64_t efer = msr_read(MSR_EFER);
     msr_write(MSR_EFER, efer | 0x1); // IA32_EFER.SCE = true
-    kernel_println("SYSCALLS: IA32_EFER.SCE set to true.");
+    kprintln("SYSCALLS: IA32_EFER.SCE set to true.");
 
     // STAR Layout
     // [ 63 : USER Selector Base : 48 ] [ 47 : KERNEL Selector Base : 32 ]
@@ -36,13 +36,16 @@ void syscalls_init(void *kernel_stack_top) {
     msr_write(MSR_SFMASK, 0x200);
     // Disable interrupts in RFLAGS while we are still in the user stack.
 
+    local_cpu_data.user_stack = 0; // Will be set later by the user.
+
+    msr_write(MSR_GS_BASE, 0); // This will flip when transitioning to user mode.
+    msr_write(MSR_KERNEL_GS_BASE, (uint64_t)&local_cpu_data);
+
+    kprintln("SYSCALLS initialized.");
+}
+
+void syscalls_set_kernel_stack(void *kernel_stack_top) {
     local_cpu_data.kernel_stack = (uint64_t) kernel_stack_top;
-    local_cpu_data.user_stack = 0; // Will be set later.
-
-    msr_write(MSR_GS_BASE, (uint64_t)&local_cpu_data); // This will flip when transitioning to user mode.
-    msr_write(MSR_KERNEL_GS_BASE, 0);
-
-    kernel_println("SYSCALLS initialized.");
 }
 
 #define PRINT_RREFIX "USER: "
@@ -67,7 +70,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
         case 0:
             return sys_print((char*) arg1);
         default:
-            kernel_println("SYSCALLS: Unknown syscall %ld called.", call_number);
+            kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;
     }
     return 0;

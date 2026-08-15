@@ -56,7 +56,7 @@ uint64_t free_pages_remaining;
 void pmm_mark_free(uint64_t physical_address) {
     if (!pmm_is_used(physical_address))
     {
-        kernel_println("PMM: Tried to mark a page free when it was already marked: %lx", physical_address);
+        kprintln("PMM: Tried to mark a page free when it was already marked: %lx", physical_address);
         return;
     }
 
@@ -68,7 +68,7 @@ void pmm_mark_free(uint64_t physical_address) {
 void pmm_mark_used(uint64_t physical_address) {
     if (pmm_is_used(physical_address))
     {
-        kernel_println("PMM: Tried to mark a page used when it was already marked: %lx", physical_address);
+        kprintln("PMM: Tried to mark a page used when it was already marked: %lx", physical_address);
         return;
     }
 
@@ -100,7 +100,7 @@ static inline bool is_system_ram(EFI_MEMORY_DESCRIPTOR *desc) {
 }
 
 uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint64_t *out_highest_phys_addr) {
-    kernel_println("PMM: Printing out the UEFI memory map now.");
+    kprintln("PMM: Printing out the UEFI memory map now.");
 
     uint64_t highest_phys_addr = 0;
     for (uint64_t i = 0; i < boot_info->memory_map.MMapSize; i += boot_info->memory_map.DescriptorSize) {
@@ -110,7 +110,7 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
         if (!is_system_ram(desc))
             continue;
 
-        kernel_println("PMM: (%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->memory_map.DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
+        kprintln("PMM: (%ld): %d: %lx -> %lx (attr: %d, size: %ld pages)", i / boot_info->memory_map.DescriptorSize, desc->Type, desc->PhysicalStart, end_addr,
                        desc->Attribute, desc->NumberOfPages);
 
         if (end_addr > highest_phys_addr)
@@ -119,9 +119,9 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
     uint64_t total_pages = (highest_phys_addr + 4095) / 4096;
     uint64_t bitmap_size = total_pages / 8;
 
-    kernel_println("PMM: Highest physical address available: %lx", highest_phys_addr);
-    kernel_println("PMM: Total pages: %ld pages. (%ld MiB)", total_pages, total_pages / 1024);
-    kernel_println("PMM: Bitmap size: %ld KiB.", bitmap_size / 1024);
+    kprintln("PMM: Highest physical address available: %lx", highest_phys_addr);
+    kprintln("PMM: Total pages: %ld pages. (%ld MiB)", total_pages, total_pages / 1024);
+    kprintln("PMM: Bitmap size: %ld KiB.", bitmap_size / 1024);
 
     uint64_t bitmap_loc = 0;
     bool space_found = false;
@@ -147,7 +147,7 @@ uint8_t *get_bitmap_address(BootInfo *boot_info, uint64_t *out_bitmap_size, uint
         PANIC("Could not find enough space in memory for physical memory table.");
     }
 
-    kernel_println("PMM: Bitmap address found at %lx.", bitmap_loc);
+    kprintln("PMM: Bitmap address found at %lx.", bitmap_loc);
 
     *out_bitmap_size = bitmap_size;
     *out_highest_phys_addr = highest_phys_addr;
@@ -171,7 +171,7 @@ void mark_available_pages_free(BootInfo *boot_info) {
         }
     }
 
-    kernel_println("PMM: %ld pages marked free in bitmap.", total_freed);
+    kprintln("PMM: %ld pages marked free in bitmap.", total_freed);
 }
 
 void pmm_init(BootInfo *boot_info) {
@@ -211,14 +211,14 @@ void pmm_init(BootInfo *boot_info) {
     if (!pmm_is_used(v2p(bitmap))) PANIC("PMM: Failed to lock bitmap!");
     if (!pmm_is_used(get_kernel_start() - HHDM_OFFSET)) PANIC("PMM: Failed to lock kernel memory!");
 
-    kernel_println("PMM: Initialization finished.");
+    kprintln("PMM: Initialization finished.");
 }
 
 void pmm_print_stats() {
-    kernel_println("--- PMM Statistics ---");
-    kernel_println("Highest addr: %lx (%ld MiB)", highest_physical_address_available, highest_physical_address_available / 1024 / 1024);
-    kernel_println("Total RAM:    %ld MB", total_available_memory / 1024 / 1024);
-    kernel_println("Free RAM:     %ld MB", free_pages_remaining * 4 / 1024);
+    kprintln("--- PMM Statistics ---");
+    kprintln("Highest addr: %lx (%ld MiB)", highest_physical_address_available, highest_physical_address_available / 1024 / 1024);
+    kprintln("Total RAM:    %ld MB", total_available_memory / 1024 / 1024);
+    kprintln("Free RAM:     %ld MB", free_pages_remaining * 4 / 1024);
 }
 
 uint64_t pmm_alloc_page() {

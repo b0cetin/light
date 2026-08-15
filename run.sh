@@ -21,7 +21,19 @@ QEMU_ARGS=(
 )
 
 if [[ "$DEBUG" == "1" ]]; then
-  QEMU_ARGS+=(-gdb tcp::1234 -S)
+  QEMU_ARGS+=(-gdb tcp::12345 -S)
 fi
 
-qemu-system-x86_64 "${QEMU_ARGS[@]}"
+qemu-system-x86_64 "${QEMU_ARGS[@]}" &
+QEMU_PID=$!
+
+if [[ "$DEBUG" == "1" ]]; then
+  while ! lsof -iTCP:12345 -sTCP:LISTEN -P -n >/dev/null 2>&1; do
+    sleep 0.05
+  done
+  touch .qemu-gdb-ready
+fi
+
+wait $QEMU_PID
+
+exit

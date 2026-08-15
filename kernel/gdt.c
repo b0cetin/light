@@ -21,7 +21,7 @@ GDTEntry setup_entry(uint8_t access, uint8_t flags)
     return (GDTEntry){0, 0, 0, access, flags, 0};
 }
 
-void gdt_init(void *kernel_stack_top) {
+void gdt_init() {
     // Null Descriptor
     gdt[0] = (GDTEntry){0, 0, 0, 0, 0, 0};
 
@@ -40,7 +40,7 @@ void gdt_init(void *kernel_stack_top) {
     gdt[4] = setup_entry(0xFA, 0xA0);
 
     // Task State Segment
-    tss_init(gdt, kernel_stack_top);
+    tss_init(gdt);
 
     gdt_desc.limit = sizeof(gdt) - 1;
     gdt_desc.base = (uint64_t)&gdt;
@@ -49,5 +49,5 @@ void gdt_init(void *kernel_stack_top) {
 
     tss_flush();
 
-    kernel_println("GDT & TSS initialized.");
+    kprintln("GDT & TSS initialized.");
 }

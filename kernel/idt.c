@@ -44,5 +44,5 @@ void idt_init() {
     idtr.base = (uint64_t)&idt;
     __asm__ volatile("lidt %0" : : "m"(idtr));
 
-    kernel_println("IDT initialized.");
+    kprintln("IDT initialized.");
 }

@@ -10,6 +10,10 @@
 void (*int_handlers[INTERRUPT_COUNT])(InterruptRegisters *);
 
 void register_interrupt_handler(uint64_t interrupt_index, void (*int_handler)(InterruptRegisters *)) {
+    if (interrupt_index == 0) {
+        PANIC("Tried to register interrupt handler for 32. Already reserved for context switching!");
+    }
+
     if (int_handlers[interrupt_index] != null) {
         PANIC("Interrupt index re-registered: %d", interrupt_index);
     }

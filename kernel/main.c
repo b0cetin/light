@@ -26,11 +26,11 @@ void *kernel_stack_top = (void *)((uint64_t)kernel_stack + sizeof(kernel_stack))
 extern void set_stack_and_jump(void *top, BootInfo *boot_info, void (*kernel_main)(BootInfo *boot_info));
 
 void kernel_main(BootInfo *boot_info) {
-    kernel_println("Switched to kernel stack.");
+    kprintln("Switched to kernel stack.");
 
     boot_modules_init(boot_info);
 
-    gdt_init(kernel_stack_top);
+    gdt_init();
     idt_init();
 
     pmm_init(boot_info);
@@ -44,17 +44,15 @@ void kernel_main(BootInfo *boot_info) {
 
     pic_remap(32); // After CPU exceptions
     ps2_keyboard_init();
-    pit_init();
-    enable_interrupts();
 
     msr_ensure();
-    syscalls_init(kernel_stack_top);
+    syscalls_init();
 
     char vendor[13];
     cpuid_read_vendor(vendor);
-    kernel_println("CPU vendor: %s", vendor);
+    kprintln("CPU vendor: %s", vendor);
 
-    cpuid_check_apic() ? kernel_println("APIC is supported.") : kernel_println("APIC is not supported.");
+    cpuid_check_apic() ? kprintln("APIC is supported.") : kprintln("APIC is not supported.");
 
     fb_clear(COLOR_BLACK);
 
@@ -62,7 +60,7 @@ void kernel_main(BootInfo *boot_info) {
 
     pmm_print_stats();
 
-    kernel_println("Kernel init ended. Switching to userspace.");
+    kprintln("Kernel init ended. Switching to userspace.");
 
     for (int i = 0; i < 40; i++) kernel_printf("\n");
 

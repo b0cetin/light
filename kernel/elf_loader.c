@@ -88,7 +88,7 @@ bool check_elf_validity(void *elf) {
     uint8_t *magic = elf;
 
     if (magic[0] != 0x7F || magic[1] != 'E' || magic[2] != 'L' || magic[3] != 'F') {
-        kernel_println("ELF: Cannot load elf file as the magic doesn't match.");
+        kprintln("ELF: Cannot load elf file as the magic doesn't match.");
         return false;
     }
 
@@ -97,25 +97,25 @@ bool check_elf_validity(void *elf) {
 
         if (identifier->class != ELF_CLASS_64_BIT)
         {
-            kernel_println("ELF: Cannot load elf file as it's not 64-bit.");
+            kprintln("ELF: Cannot load elf file as it's not 64-bit.");
             return false;
         }
 
         if (identifier->endianness != ELF_ENDIANNESS_LITTLE_ENDIAN)
         {
-            kernel_println("ELF: Cannot load elf file as it's not little endian.");
+            kprintln("ELF: Cannot load elf file as it's not little endian.");
             return false;
         }
 
         if (identifier->version != ELF_VERSION)
         {
-            kernel_println("ELF: Cannot load elf file because of unknown ELF version.");
+            kprintln("ELF: Cannot load elf file because of unknown ELF version.");
             return false;
         }
 
         if (identifier->os_abi != ELF_OS_ABI_SYSTEMV)
         {
-            kernel_println("ELF: Cannot load elf file as it follows the wrong OS ABI.");
+            kprintln("ELF: Cannot load elf file as it follows the wrong OS ABI.");
             return false;
         }
     }
@@ -124,19 +124,19 @@ bool check_elf_validity(void *elf) {
 
     if (header->type != ELFTYPE_EXECUTABLE)
     {
-        kernel_println("ELF: Cannot load elf file as it's not an executable.");
+        kprintln("ELF: Cannot load elf file as it's not an executable.");
         return false;
     }
 
     if (header->machine != ELF_MACHINE_AMD64)
     {
-        kernel_println("ELF: Cannot load elf file as it's compiled for an incompatible machine architecture.");
+        kprintln("ELF: Cannot load elf file as it's compiled for an incompatible machine architecture.");
         return false;
     }
 
     if (header->version != ELF_VERSION)
     {
-        kernel_println("ELF: Cannot load elf file because of unknown ELF version.");
+        kprintln("ELF: Cannot load elf file because of unknown ELF version.");
         return false;
     }
 
@@ -158,7 +158,7 @@ void *load_elf(PLM4 *user_address_space, void *content) {
             case ELF_PT_NULL: continue;
             case ELF_PT_NOTE: continue;
             case ELF_PT_INTERPRET:
-                kernel_println("ELF: Program table entry PT_INTERPRET found. Skipping...");
+                kprintln("ELF: Program table entry PT_INTERPRET found. Skipping...");
                 continue;
             case ELF_PT_DYNAMIC:
                 PANIC("Elf program requests dynamic linking. Currently not supported. This is a panic and not a warning because I haven't implemented cleaning up on error.");
@@ -185,7 +185,7 @@ void *load_elf(PLM4 *user_address_space, void *content) {
                     vmm_map(user_address_space, address, physical_address, mapping_flags);
                     memzero(p2v(physical_address), PAGE_SIZE);
 
-                    kernel_println("ELF: Allocating page from %lx, mapped to %lx", address, aligned_start + i * PAGE_SIZE);
+                    kprintln("ELF: Allocating page from %lx, mapped to %lx", address, aligned_start + i * PAGE_SIZE);
 
                     if (bytes_copied < program_header->file_size) {
                         uint64_t dest_offset = i == 0 ? page_offset : 0;
@@ -196,7 +196,7 @@ void *load_elf(PLM4 *user_address_space, void *content) {
                         bytes_copied += amount_to_copy;
                     }
                     else {
-                        kernel_println("ELF: No data on file to copy.");
+                        kprintln("ELF: No data on file to copy.");
                     }
                 }
 
@@ -205,7 +205,7 @@ void *load_elf(PLM4 *user_address_space, void *content) {
         }
     }
 
-    kernel_println("ELF: Successfully loaded ELF file.");
+    kprintln("ELF: Successfully loaded ELF file.");
 
     return (void*) header->entry;
 }

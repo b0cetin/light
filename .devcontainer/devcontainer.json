@@ -2,6 +2,7 @@
     "name": "Light OS",
     "image": "light-os-dev",
     "initializeCommand": "docker buildx build --platform linux/amd64 --provenance=false --load -t light-os-dev -f ${localWorkspaceFolder}/.devcontainer/Dockerfile ${localWorkspaceFolder}",
+    "forwardPorts": [ 1234 ],
     "runArgs": ["--platform=linux/amd64"],
     "workspaceFolder": "/workspace",
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",

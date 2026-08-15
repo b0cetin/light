@@ -30,10 +30,11 @@ run: all
 	@echo "run" > .qemu-trigger
 
 debug:
+	@rm -f .qemu-gdb-ready
 	@echo "debug" > .qemu-trigger
 	@echo "Waiting for QEMU GDB server..."
-	@while ! (echo > /dev/tcp/host.docker.internal/1234) 2>/dev/null; \
-	    do sleep 0.1; done
+	@while [ ! -f .qemu-gdb-ready ]; do sleep 0.1; done
+	@rm -f .qemu-gdb-ready
 	@echo "GDB server ready"
 
 debug-kernel:

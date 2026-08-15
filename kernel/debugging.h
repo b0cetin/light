@@ -2,7 +2,7 @@
 #pragma once
 
 void kernel_printf(const char *fmt, ...);
-void kernel_println(const char *fmt, ...);
+void kprintln(const char *fmt, ...);
 
 void kernel_panic(const char *file, int line, const char *fmt, ...);
 

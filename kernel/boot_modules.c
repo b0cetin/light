@@ -7,7 +7,7 @@
 ReadModule *modules;
 
 void boot_modules_init(BootInfo *boot_info) {
-    kernel_println("BOOT: Listing loaded modules now.");
+    kprintln("BOOT: Listing loaded modules now.");
 
     for (int i = 0; i < READ_MODULE_COUNT; i++) {
         ReadModule *this = &boot_info->modules[i];
@@ -18,12 +18,12 @@ void boot_modules_init(BootInfo *boot_info) {
 
         convert_utf16_to_ascii(this->path, module_path);
 
-        kernel_println("BOOT: Module %d: %s", i, module_path);
+        kprintln("BOOT: Module %d: %s", i, module_path);
     }
 
     modules = boot_info->modules;
 
-    kernel_println("Boot modules initialized.");
+    kprintln("Boot modules initialized.");
 }
 
 ReadModule *boot_modules_get_all() {

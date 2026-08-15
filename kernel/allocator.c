@@ -73,12 +73,12 @@ uint64_t heap_capacity = 0;
 // }
 
 void alloc_init() {
-    kernel_println("ALLOC: Initializing heap memory...");
+    kprintln("ALLOC: Initializing heap memory...");
 
     heap_capacity = 4096 * 256;
     heap_size = sizeof(BlockHeader);
 
-    kernel_println("ALLOC: Initial heap capacity: %ld pages", heap_capacity / 4096);
+    kprintln("ALLOC: Initial heap capacity: %ld pages", heap_capacity / 4096);
 
     uint64_t block_phys = pmm_alloc(heap_capacity / 4096);
 
@@ -94,7 +94,7 @@ void alloc_init() {
     first->prev = null;
     first->next = null;
 
-    kernel_println("ALLOC: Initialized heap memory with size of %ld KiB.", heap_capacity / 1024);
+    kprintln("ALLOC: Initialized heap memory with size of %ld KiB.", heap_capacity / 1024);
 
     // test();
 }
@@ -115,7 +115,7 @@ void coalesce(BlockHeader *free_header) {
         BlockHeader* next_next = free_header->next->next;
         size_t next_size = free_header->next->size;
 
-        kernel_println("ALLOC: Coalescing free header at %lx with next header at %lx...", free_header, free_header->next);
+        kprintln("ALLOC: Coalescing free header at %lx with next header at %lx...", free_header, free_header->next);
 
         memzero(free_header->next, sizeof(BlockHeader));
         free_header->size += next_size + sizeof(BlockHeader);
@@ -134,7 +134,7 @@ void coalesce(BlockHeader *free_header) {
         BlockHeader* current_next = free_header->next;
         size_t current_size = free_header->size;
 
-        kernel_println("ALLOC: Coalescing free header at %lx with prev header at %lx...", free_header, free_header->prev);
+        kprintln("ALLOC: Coalescing free header at %lx with prev header at %lx...", free_header, free_header->prev);
 
         BlockHeader* prev = free_header->prev;
 

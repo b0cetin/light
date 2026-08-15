@@ -95,7 +95,7 @@ void kernel_printf(const char *fmt, ...) {
     va_end(args);
 }
 
-void kernel_println(const char *fmt, ...) {
+void kprintln(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     vkprintf(fmt, args);

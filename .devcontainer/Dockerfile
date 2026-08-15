@@ -20,12 +20,14 @@ FROM --platform=linux/amd64 ubuntu:24.04 AS cross-builder
 ARG TARGET=x86_64-elf
 ARG BINUTILS_VERSION=2.45.1
 ARG GCC_VERSION=15.2.0
+ARG GDB_VERSION=15.2
 ARG PREFIX=/cross
 
 RUN apt-get update && apt-get install -y \
     build-essential wget \
     libgmp-dev libmpfr-dev libmpc-dev \
     texinfo bison flex \
+    libncurses-dev zlib1g-dev libexpat1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -52,6 +54,16 @@ RUN wget -q https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.ta
         --without-headers \
     && make -j$(nproc) all-gcc all-target-libgcc \
     && make install-gcc install-target-libgcc
+
+RUN wget -q https://ftp.gnu.org/gnu/gdb/gdb-${GDB_VERSION}.tar.gz \
+    && tar xf gdb-${GDB_VERSION}.tar.gz \
+    && mkdir build-gdb && cd build-gdb \
+    && ../gdb-${GDB_VERSION}/configure \
+        --target=${TARGET} \
+        --prefix=${PREFIX} \
+        --disable-nls \
+        --disable-werror \
+    && make -j$(nproc) all-gdb && make install-gdb
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 3: Final unified image

@@ -20,7 +20,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/dist/kernel.elf",
-            "miDebuggerServerAddress": "host.docker.internal:1234",
+            "miDebuggerServerAddress": "host.docker.internal:12345",
             "miDebuggerPath": "/cross/bin/x86_64-elf-gdb",
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
