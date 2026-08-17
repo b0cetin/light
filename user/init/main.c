@@ -72,6 +72,19 @@ uint64_t sys_get_thread_id() {
     return ret;
 }
 
+uint64_t sys_get_pid() {
+    uint64_t ret;
+
+    asm volatile (
+        "syscall\n"
+        : "=a" (ret)
+        : "a" (7)
+        :  "rcx", "r11", "memory"
+    );
+
+    return ret;
+}
+
 void *thread_test() {
     sys_print("This is a printing log from another thread!\n");
 
@@ -87,5 +100,5 @@ int main() {
 
     uint64_t result = (uint64_t) sys_wait_thread(new_t);
 
-    return ++result;
+    return result + sys_get_pid();
 }

@@ -132,6 +132,10 @@ uint64_t sys_get_thread_id() {
     return ctx_switching_get_active_thread()->local_id;
 }
 
+uint64_t sys_get_pid() {
+    return ctx_switching_get_active_thread()->owner->pid;
+}
+
 int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
                           uint64_t arg3, uint64_t arg4, uint64_t arg5)
 {
@@ -153,6 +157,8 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
             return 0;
         case 6:
             return sys_get_thread_id();
+        case 7:
+            return sys_get_pid();
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;

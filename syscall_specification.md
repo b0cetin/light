@@ -28,3 +28,7 @@ thread within or out the current process.
 ## 6: uint64_t sys_get_thread_id()
 Returns the local thread id of the thread invoking
 the call.
+
+## 7: uint64_t sys_get_pid()
+Returns the process id of the thread invoking the
+call.
