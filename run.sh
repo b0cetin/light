@@ -6,6 +6,7 @@ mkdir -p fat/kernel
 
 cp dist/BOOTX64.EFI fat/EFI/BOOT/BOOTX64.EFI
 cp dist/kernel.elf fat/kernel/kernel.elf
+cp -r dist/user fat
 
 QEMU_ARGS=(
   -machine q35
@@ -35,5 +36,3 @@ if [[ "$DEBUG" == "1" ]]; then
 fi
 
 wait $QEMU_PID
-
-exit

@@ -62,8 +62,6 @@ void kernel_main(BootInfo *boot_info) {
 
     kprintln("Kernel init ended. Switching to userspace.");
 
-    for (int i = 0; i < 40; i++) kernel_printf("\n");
-
     start_first_user_process();
 
     // while (1) {

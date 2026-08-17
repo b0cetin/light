@@ -37,7 +37,7 @@ void start_first_user_process(void) {
 
     char* ascii_path = kmalloc(READ_MODULE_PATH_SIZE * 2);
     convert_utf16_to_ascii(boot_modules_get_all()->path, ascii_path);
-    Process *process = process_create(entry_point, user_address_space, ascii_path);
+    Process *process = process_create_critical(entry_point, user_address_space, ascii_path);
     kfree(ascii_path);
 
     Thread *thread = process->threads;

@@ -104,7 +104,7 @@ PLM4 *vmm_create_user_address_space() {
 }
 
 // Will destroy all user tables and free all memory.
-void vmm_destroy_user_address_space(PLM4 *plm4) {
+void vmm_destroy_user_address_space_and_free_memory(PLM4 *plm4) {
     if (plm4 == kernel_pml4)
         PANIC("vmm_destroy_user_address_space() called on kernel PLM4.");
 

@@ -1,6 +1,9 @@
 
 #include "cpu_exceptions.h"
+#include "context_switching.h"
 #include "debugging.h"
+#include "processes.h"
+#include "types.h"
 #include <stdint.h>
 
 void gp_fault(InterruptRegisters *regs) {
@@ -32,6 +35,24 @@ void page_fault(InterruptRegisters *regs) {
 }
 
 void handle_cpu_exception(InterruptRegisters *regs) {
+    bool from_userspace = (regs->cs & 0x3) == 3;
+
+    if (from_userspace) {
+        if (ctx_switching_get_active_thread() == null) {
+            kprintln("CPU exception came from userspace but there's no active thread?");
+        }
+        else {
+            Thread *thread = ctx_switching_get_active_thread();
+            Process *process = thread->owner;
+
+            kprintln("PROC: Thread %ld of process %ld encountered exception %ld on instruction %lx.",
+                thread->local_id, process->pid, regs->interrupt_number, regs->rip);
+            
+            process_begin_process_teardown(process, -1);
+            return;
+        }
+    }
+    
     kprintln("\nCPU EXCEPTION: From instruction at %lx", regs->rip);
 
     switch (regs->interrupt_number) {

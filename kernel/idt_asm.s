@@ -26,6 +26,14 @@ isr_32:
     jmp isr_ctx_switch
 .endm
 
+# A macro for manual context switching on 0x81 (available after remap)
+.macro ISR_CTX_SWITCH_MANUAL
+.global isr_129
+isr_129:
+    # No codes.
+    jmp isr_ctx_switch_manual
+.endm
+
 # Stubs
 ISR_NOERRCODE 0
 ISR_NOERRCODE 1
@@ -61,7 +69,13 @@ ISR_ERRCODE   30
 ISR_NOERRCODE 31
 ISR_CTX_SWITCH
 .set i, 33
-.rept 224
+.rept 96
+    ISR_NOERRCODE %i
+    .set i, i+1
+.endr
+ISR_CTX_SWITCH_MANUAL
+.set i, 130
+.rept 126
     ISR_NOERRCODE %i
     .set i, i+1
 .endr
@@ -111,6 +125,28 @@ isr_ctx_switch:
     
     movb $0x20, %al
     outb %al, $0x20 # Send EOI to PIC so that the next tick can come.
+
+    # Restore registers
+    popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp
+    popq %r8;  popq %r9;  popq %r10; popq %r11; popq %r12; popq %r13; popq %r14; popq %r15
+
+    # Return from interrupt
+    iretq
+
+isr_ctx_switch_manual:
+    cld # Clear Direction Flag for ABI compliance
+
+    # Save all registers (context switching)
+    pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
+    pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
+
+    # Pass the stack pointer to C
+    movq %rsp, %rdi
+
+    call isr_context_switch
+
+    # C function returns the stack pointer to switch to
+    movq %rax, %rsp
 
     # Restore registers
     popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp

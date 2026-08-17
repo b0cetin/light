@@ -10,7 +10,7 @@ echo "Host runner ready."
 
 launch() {
     osascript -e "tell application \"Terminal\"
-        do script \"cd '$DIR' && $1\"
+        do script \"cd '$DIR' && $1 && exit\"
         activate
     end tell"
 }

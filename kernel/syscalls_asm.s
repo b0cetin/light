@@ -6,11 +6,19 @@ syscall_entry:
     movq %rsp, %gs:8
     movq %gs:0, %rsp
 
-    # TODO: Consider interrupts in the future.
+    pushq %gs:8 # Preserve user stack.
+
+    # NOTE: User stack needs to be preserved in case of syscalls like
+    # sys_yield. If the syscall yields to another thread, and that
+    # thread makes another syscall, the per-core user stack variable
+    # is overwritten. This would lead to popping off to the wrong address.
 
     # SYSCALL puts user RIP into RCX and user RFLAGS into R11
     pushq %r11 # Preserve user RFLAGS
     pushq %rcx # Preserve user RIP
+
+    cli
+
     pushq %rbp
     pushq %rbx
     pushq %r12
@@ -47,6 +55,8 @@ syscall_entry:
     popq %rbp
     popq %rcx # Restore user RIP
     popq %r11 # Restore user RFLAGS
+
+    popq %gs:8 # Restore user stack
 
     movq %gs:8, %rsp
     swapgs
