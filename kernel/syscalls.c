@@ -6,6 +6,8 @@
 #include "kernel_lib.h"
 #include "msr.h"
 #include "processes.h"
+#include "userspace.h"
+#include "vmm.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -50,6 +52,22 @@ void syscalls_set_kernel_stack(void *kernel_stack_top) {
     local_cpu_data.kernel_stack = (uint64_t) kernel_stack_top;
 }
 
+bool is_valid_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the actual range
+    uintptr_t end;
+
+    if (__builtin_add_overflow(ptr, size, &end)) {
+        return false;
+    }
+
+    uint64_t flags, phys;
+    
+    if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->cr3, ptr, &phys, &flags))
+        return false;
+
+    uint64_t mask = PT_PRESENT | PT_USER | PT_RW | PT_NX;
+    return (flags & mask) == mask; 
+}
+
 #define PRINT_RREFIX "USER: "
 int64_t sys_print(const char* buf) {
     if (buf == null) {
@@ -71,9 +89,14 @@ int64_t sys_print(const char* buf) {
     return 0;
 }
 
-uint64_t sys_create_thread(void *function) {
-    kprintln("SYSCALLS: sys_create_thread called by %ld with entry point %lx.", ctx_switching_get_active_thread()->local_id, (uint64_t) function);
-    return process_create_thread(function, ctx_switching_get_active_thread()->owner)->local_id;
+int64_t sys_create_thread(void *function, uint64_t *out_thread_id) {
+    // kprintln("SYSCALLS: sys_create_thread called by %ld with entry point %lx.", ctx_switching_get_active_thread()->local_id, (uint64_t) function);
+
+    if (!is_valid_user_range((uintptr_t) out_thread_id, 8)) return -1;
+
+    Thread *thread = process_create_thread(function, ctx_switching_get_active_thread()->owner);
+    *out_thread_id = thread->local_id; // FIXME: Pointer checks & safeguards
+    return 0;
 }
 
 void sys_exit(uint64_t status) {
@@ -111,13 +134,14 @@ void sys_yield() {
     );
 }
 
-uint64_t sys_wait_thread(uint64_t id) {
+int64_t sys_wait_thread(uint64_t id, void **out_result) {
+    if (!is_valid_user_range((uintptr_t) out_result, 8)) return -1;
+
     Thread *target = process_try_get_thread_from_id(ctx_switching_get_active_thread()->owner, id);
 
     if (target == null) {
         kprintln("Thread %ld of process %ld invoked sys_wait_thread with an invalid thread id.",
             ctx_switching_get_active_thread()->local_id, ctx_switching_get_active_thread()->owner->pid);
-        process_crash_with_switch(ctx_switching_get_active_thread()->owner);
         return -1;
     }
 
@@ -125,7 +149,9 @@ uint64_t sys_wait_thread(uint64_t id) {
         sys_yield();
     }
 
-    return target->result;
+    *out_result = (void*) target->result;
+
+    return 0;
 }
 
 uint64_t sys_get_thread_id() {
@@ -136,6 +162,21 @@ uint64_t sys_get_pid() {
     return ctx_switching_get_active_thread()->owner->pid;
 }
 
+int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t *out_pid, uint64_t flags) {
+    if (ctx_switching_get_active_thread()->owner->pid != PROCESS_INIT_PID)
+    {
+        kprintln("Process %ld tried to invoke sys_create_process, but it's not the init process! (expected %ld)",
+            ctx_switching_get_active_thread()->owner->pid, PROCESS_INIT_PID);
+        return -1;
+    }
+
+    if (!is_valid_user_range((uintptr_t) content, content_len)) return -1;
+    if (!is_valid_user_range((uintptr_t) name, name_len)) return -1;
+    if (!is_valid_user_range((uintptr_t) out_pid, sizeof(uint64_t*))) return -1;
+
+    PANIC("sys_create_process not implemented!");
+}
+
 int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
                           uint64_t arg3, uint64_t arg4, uint64_t arg5)
 {
@@ -143,7 +184,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
         case 0:
             return sys_print((char*) arg1);
         case 1:
-            return sys_create_thread((void*) arg1);
+            return sys_create_thread((void*) arg1, (uint64_t*) arg2);
         case 2:
             sys_exit(arg1);
             return 0;
@@ -151,7 +192,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
             sys_exit_thread(arg1);
             return 0;
         case 4:
-            return sys_wait_thread(arg1);
+            return sys_wait_thread(arg1, (void **) arg2);
         case 5:
             sys_yield();
             return 0;

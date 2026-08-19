@@ -39,12 +39,12 @@ typedef struct {
 
 typedef struct Process {
     // Processor
-    PLM4* cr3;
+    PML4* cr3;
 
     // Metadata
     ProcessState state;
     uint64_t pid;
-    char *path;
+    char *name;
     bool is_critical;
 
     // Threads
@@ -58,8 +58,8 @@ typedef struct Process {
     struct Process *next;
 } Process;
 
-Process *process_create(void *entry, PLM4 *plm4, char *path);
-Process *process_create_critical(void *entry, PLM4 *plm4, char *path);
+Process *process_create(void *entry, PML4 *plm4, char *path);
+Process *process_create_critical(void *entry, PML4 *plm4, char *path);
 Thread *process_create_thread(void *entry, Process *process);
 
 bool process_begin_thread_teardown(Thread *thread, uint64_t result);

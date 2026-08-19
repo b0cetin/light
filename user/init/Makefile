@@ -34,11 +34,11 @@ $(TMP)/%.o: %.c | $(TMP)
 
 $(OUT)/$(EXEC_NAME).elf: $(OBJS)
 	@echo "  AS    crt0.s"
-	$(Q)$(CC) $(ASFLAGS) -c crt0.s -o crt0.o
+	$(Q)$(CC) $(ASFLAGS) -c crt0.s -o $(TMP)/crt0.o
 
 	@echo "  LD    $(notdir $@)"
 	$(Q)mkdir -p $(OUT)
-	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS) crt0.o
+	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS) $(TMP)/crt0.o
 	@echo "  ✓  $(OUT)/$(EXEC_NAME).elf"
 
 clean:

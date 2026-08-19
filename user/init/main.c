@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define SYS_SUCCESS 0
+
 int64_t sys_print(const char* buf) {
     int64_t ret;
 
@@ -15,17 +17,17 @@ int64_t sys_print(const char* buf) {
     return ret;
 }
 
-uint64_t sys_create_thread(void *function) {
-    uint64_t id;
+int64_t sys_create_thread(void *function, uint64_t *out_thread_id) {
+    uint64_t ret;
 
     asm volatile (
         "syscall\n"
-        : "=a" (id)
-        : "a" (1), "D" (function)
+        : "=a" (ret)
+        : "a" (1), "D" (function), "S" (out_thread_id)
         :  "rcx", "r11", "memory"
     );
 
-    return id;
+    return ret;
 }
 
 void sys_exit_thread(void *result) {
@@ -37,13 +39,13 @@ void sys_exit_thread(void *result) {
     );
 }
 
-void *sys_wait_thread(uint64_t thread) {
-    void *ret;
+int64_t sys_wait_thread(uint64_t id, void **out_result) {
+    int64_t ret;
 
     asm volatile (
         "syscall\n"
         : "=a" (ret)
-        : "a" (4), "D" (thread)
+        : "a" (4), "D" (id), "S" (out_result)
         :  "rcx", "r11", "memory"
     );
 
@@ -94,11 +96,21 @@ void *thread_test() {
 int main() {
     sys_print("init process started.\n");
 
-    uint64_t new_t = sys_create_thread(thread_test);
+    uint64_t new_t;
+    
+    if (sys_create_thread(thread_test, &new_t) != SYS_SUCCESS) {
+        sys_print("Could not create new thread. Terminating.");
+        return -1;
+    }
 
     sys_print("created new thread.\n");
 
-    uint64_t result = (uint64_t) sys_wait_thread(new_t);
+    uint64_t result;
+    
+    if (sys_wait_thread(new_t, (void**) &result) != SYS_SUCCESS) {
+        sys_print("Failure waiting for thread. Terminating.");
+        return -1;
+    }
 
     return result + sys_get_pid();
 }

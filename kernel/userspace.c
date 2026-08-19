@@ -17,7 +17,7 @@
 
 extern void enter_userspace(uint64_t kernel_rsp);
 
-void map_range_identically(PLM4 *pml4, uint64_t start, uint64_t size, uint64_t flags) {
+void map_range_identically(PML4 *pml4, uint64_t start, uint64_t size, uint64_t flags) {
     uint64_t first_page = start & ~(0xFFFULL);
     uint64_t last_page = (start + size + 4095) & ~(0xFFFULL);
 
@@ -29,7 +29,7 @@ void map_range_identically(PLM4 *pml4, uint64_t start, uint64_t size, uint64_t f
 // Drops into first loaded module.
 // This call never returns.
 void start_first_user_process(void) {
-    PLM4 *user_address_space = vmm_create_user_address_space();
+    PML4 *user_address_space = vmm_create_user_address_space();
 
     void *entry_point = load_elf(user_address_space, p2v(boot_modules_get_all()->physical_location));
 

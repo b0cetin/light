@@ -48,7 +48,7 @@ void handle_cpu_exception(InterruptRegisters *regs) {
             kprintln("PROC: Thread %ld of process %ld encountered exception %ld on instruction %lx.",
                 thread->local_id, process->pid, regs->interrupt_number, regs->rip);
             
-            process_begin_process_teardown(process, -1);
+            process_crash_with_switch(process);
             return;
         }
     }

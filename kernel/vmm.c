@@ -18,7 +18,9 @@ static inline void invlpg(uint64_t virt) { // Invalidates TLB entries.
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
-static uint64_t *get_next_level(uint64_t *current_level, uint64_t index) {
+// If create_if_needed is set to false, then if the next level cannot be found,
+// the function will return 0.
+static uint64_t *get_next_level(uint64_t *current_level, uint64_t index, bool create_if_needed) {
     if (current_level[index] & PT_PRESENT) {
         return p2v(current_level[index] & PT_ADDRESS_MASK);
 
@@ -27,6 +29,8 @@ static uint64_t *get_next_level(uint64_t *current_level, uint64_t index) {
         // NOTE: I didn't implement upgrading as the default option is
         // the most permissive one.
     }
+
+    if (!create_if_needed) return 0;
 
     uint64_t new_table = pmm_alloc_page();
     if (new_table == 0)
@@ -44,29 +48,29 @@ static uint64_t *get_next_level(uint64_t *current_level, uint64_t index) {
     return p2v(new_table);
 }
 
-void vmm_map(PLM4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
+void vmm_map(PML4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
     uint64_t pd_idx = (virt >> 21) & 0x1FF;
     uint64_t pt_idx = (virt >> 12) & 0x1FF;
 
-    uint64_t *pdpt = get_next_level(pml4, pml4_idx);
+    uint64_t *pdpt = get_next_level(pml4, pml4_idx, true);
     if (pdpt[pdpt_idx] & PT_HUGE) PANIC("VMM: Reached 1GB huge page in PDPT during page traversal.");
 
-    uint64_t *pd = get_next_level(pdpt, pdpt_idx);
+    uint64_t *pd = get_next_level(pdpt, pdpt_idx, true);
 
     if (pd[pd_idx] & PT_HUGE) {
         PANIC("VMM: Reached huge PD while traversing with normal mapping.");
     }
 
-    uint64_t *pt = get_next_level(pd, pd_idx);
+    uint64_t *pt = get_next_level(pd, pd_idx, true);
 
     pt[pt_idx] = (phys & PAGE_4KB_MASK) | flags | PT_PRESENT;
 
     invlpg(virt); // Invalidate CPU caching.
 }
 
-void map_range_with_offset(PLM4 *pml4, uint64_t start, uint64_t size, uint64_t offset, uint64_t flags) {
+void map_range_with_offset(PML4 *pml4, uint64_t start, uint64_t size, uint64_t offset, uint64_t flags) {
     uint64_t first_page = start & ~(0xFFFULL);
     uint64_t last_page = (start + size + 4095) & ~(0xFFFULL);
 
@@ -75,7 +79,7 @@ void map_range_with_offset(PLM4 *pml4, uint64_t start, uint64_t size, uint64_t o
     }
 }
 
-PLM4 *kernel_pml4 = 0;
+PML4 *kernel_pml4 = 0;
 
 void vmm_kmap_mmio(uint64_t phys, uint64_t size) {
     // PT_PCD (Cache Disable) and PT_PWT (Write Through) are recommended for MMIO
@@ -84,12 +88,12 @@ void vmm_kmap_mmio(uint64_t phys, uint64_t size) {
     map_range_with_offset(kernel_pml4, phys, size, HHDM_OFFSET, flags);
 }
 
-PLM4 *vmm_create_user_address_space() {
+PML4 *vmm_create_user_address_space() {
     uint64_t pml4_phys = pmm_alloc_page();
     if (pml4_phys == 0)
         PANIC("VMM: PMM returned null for PML4 allocation for user address space.");
 
-    PLM4 *plm4 = p2v(pml4_phys);
+    PML4 *plm4 = p2v(pml4_phys);
     memzero(plm4, PAGE_SIZE);
 
     memcpy(&plm4[256], &kernel_pml4[256], 256 * sizeof(uint64_t));
@@ -104,7 +108,7 @@ PLM4 *vmm_create_user_address_space() {
 }
 
 // Will destroy all user tables and free all memory.
-void vmm_destroy_user_address_space_and_free_memory(PLM4 *plm4) {
+void vmm_destroy_user_address_space_and_free_memory(PML4 *plm4) {
     if (plm4 == kernel_pml4)
         PANIC("vmm_destroy_user_address_space() called on kernel PLM4.");
 
@@ -152,7 +156,7 @@ void vmm_destroy_user_address_space_and_free_memory(PLM4 *plm4) {
     kprintln("VMM: Destroyed user PLM4 on %lx.", plm4);
 }
 
-void vmm_switch_to_user_address_space(PLM4 *plm4) {
+void vmm_switch_to_user_address_space(PML4 *plm4) {
     load_cr3(v2p(plm4));
 }
 
@@ -179,6 +183,33 @@ void vmm_init() {
     kprintln("VMM: Initialization finished.");
 }
 
+bool vmm_get_page_info(PML4 *pml4, uint64_t virt, uint64_t *out_phys, uint64_t *out_flags) {
+    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
+
+    uint64_t *pdpt = get_next_level(pml4, pml4_idx, false);
+    if (pdpt == 0) return false;
+    
+    if (pdpt[pdpt_idx] & PT_HUGE) PANIC("VMM: Reached 1GB huge page in PDPT during page traversal.");
+
+    uint64_t *pd = get_next_level(pdpt, pdpt_idx, false);
+    if (pd == 0) return false;
+
+    if (pd[pd_idx] & PT_HUGE) {
+        PANIC("VMM: Reached huge PD while traversing with normal mapping.");
+    }
+
+    uint64_t *pt = get_next_level(pd, pd_idx, false);
+    if (pt == 0) return false;
+
+    *out_phys = (pt[pt_idx] & PAGE_4KB_MASK) | (virt & 0xFFF);;
+    *out_flags = pt[pt_idx] & (~PAGE_4KB_MASK);
+
+    return true;
+}
+
 // Previous 2mb functionality has been removed.
 
 // #define PAGE_2MB_MASK 0x000FFFFFFFFFE00000ULL
@@ -203,34 +234,4 @@ void vmm_init() {
 //     for (uint64_t addr = first_huge_page; addr < last_huge_page; addr += 0x200000) {
 //         map_2mb(pml4, addr + offset, addr, flags);
 //     }
-// }
-
-// I'm not quite sure what this is and why map() itself can't do it so I'll leave it here
-// for future reasoning.
-
-// bool vmm_set_flags(void *virtual, uint64_t flags) {
-//     uint64_t virt = (uint64_t) virtual;
-
-//     uint64_t pml4_idx = (virt >> 39) & 0x1FF;
-//     uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
-//     uint64_t pd_idx   = (virt >> 21) & 0x1FF;
-//     uint64_t pt_idx   = (virt >> 12) & 0x1FF;
-
-//     if (!(pml4[pml4_idx] & PT_PRESENT)) return false;
-//     uint64_t *pdpt = p2v(pml4[pml4_idx] & PAGE_4KB_MASK);
-
-//     if (!(pdpt[pdpt_idx] & PT_PRESENT)) return false;
-//     uint64_t *pd = p2v(pdpt[pdpt_idx] & PAGE_4KB_MASK);
-
-//     if (!(pd[pd_idx] & PT_PRESENT)) return false;
-//     uint64_t *pt = p2v(pd[pd_idx] & PAGE_4KB_MASK);
-
-//     if (!(pt[pt_idx] & PT_PRESENT)) return false;
-
-//     uint64_t phys = pt[pt_idx] & PAGE_4KB_MASK;
-//     pt[pt_idx] = phys | flags | PT_PRESENT;
-
-//     invlpg(virt);
-
-//     return true;
 // }

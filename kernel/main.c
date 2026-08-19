@@ -56,17 +56,13 @@ void kernel_main(BootInfo *boot_info) {
 
     fb_clear(COLOR_BLACK);
 
-    fb_draw_text(fb_width() / 2 - 20, fb_height() / 2 - 4, "light", COLOR_WHITE);
+    fb_draw_text(fb_width() / 2 - 40, fb_height() / 2 - 8, "light", COLOR_WHITE);
 
     pmm_print_stats();
 
     kprintln("Kernel init ended. Switching to userspace.");
 
     start_first_user_process();
-
-    // while (1) {
-    //     __asm__ volatile("hlt");
-    // }
 }
 
 void _start(BootInfo *boot_info) {

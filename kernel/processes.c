@@ -28,22 +28,22 @@ static Process *allocate_process() {
     return new_process;
 }
 
-Process *process_create_critical(void *entry, PLM4 *plm4, char *path) {
-    Process *process = process_create(entry, plm4, path);
+Process *process_create_critical(void *entry, PML4 *pml4, char *path) {
+    Process *process = process_create(entry, pml4, path);
     process->is_critical = true;
 
     return process;
 }
 
-Process *process_create(void *entry, PLM4 *plm4, char *path) {
+Process *process_create(void *entry, PML4 *pml4, char *path) {
     Process *new_process = allocate_process();
 
     size_t path_size = strnlen(path, UINT8_MAX) + 1;
     char *new_path = kmalloc(path_size);
     memcpy(new_path, path, path_size);
 
-    new_process->cr3 = plm4;
-    new_process->path = new_path;
+    new_process->cr3 = pml4;
+    new_process->name = new_path;
     new_process->pid = next_pid++;
     new_process->state = PROCESS_ALIVE;
     new_process->is_critical = false;
@@ -191,8 +191,8 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
     // but that's not a thing right now so I'll let this memory leak pass.
     // INCORRECT
 
-    kfree(process->path);
-    process->path = null;
+    kfree(process->name);
+    process->name = null;
 
     vmm_destroy_user_address_space_and_free_memory(process->cr3); // Already frees.
     process->cr3 = null;

@@ -30,7 +30,6 @@ void write_tss_descriptor(GDTEntry *gdt, uint32_t index, uint64_t base, uint32_t
 }
 
 // Should only be invoked by gdt.c.
-// kernel_stack_top is the virtual address.
 void tss_init(GDTEntry *gdt)
 {
     memzero(&tss, sizeof(tss));

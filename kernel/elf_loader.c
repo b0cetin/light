@@ -144,7 +144,7 @@ bool check_elf_validity(void *elf) {
 }
 
 // Returns the entry point according to the given user address space.
-void *load_elf(PLM4 *user_address_space, void *content) {
+void *load_elf(PML4 *user_address_space, void *content) {
     if (!check_elf_validity(content)) return null;
 
     ELFHeader *header = content;
