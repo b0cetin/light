@@ -18,6 +18,7 @@ syscall_entry:
     pushq %rcx # Preserve user RIP
 
     cli
+    cld
 
     pushq %rbp
     pushq %rbx
@@ -29,6 +30,7 @@ syscall_entry:
     # The additional registers above are expected to be saved
     # and protected after the syscall.
 
+    pushq %r9 # 7th argument
     movq %r8, %r9
     movq %r10, %r8
     movq %rdx, %rcx
@@ -39,13 +41,10 @@ syscall_entry:
     # The syscall is called with x86-64 ABI (Standard), but the
     # function expects System V AMD64 C ABI, so we shift
     # the registers.
-
-    # System V C ABI expects argument 4 in RCX.
-    # SYSCALL used RCX for RIP, so incoming user arg 4 was sent in R10.
-    # We move R10 to RCX before calling our C function.
-
-    movq %r10, %rcx             
+  
     call syscall_handler
+
+    addq $0x8, %rsp
 
     popq %r15
     popq %r14

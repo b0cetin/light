@@ -59,10 +59,12 @@ ReadResult read_into_buffer(CHAR16 *path, EFI_FILE_HANDLE volume) {
 
     UINT64 read_size = file_size(kernel_handle);
     
-    void *location = AllocatePool(read_size);
-    if (location == NULL) {
-        Print(L"Allocation failed!\n");
-        return (ReadResult) { EFI_LOAD_ERROR, 0, 0 };
+    uint64_t page_count = ((read_size + 0xFFF) & ~0xFFF) / 4096;
+    uintptr_t location;
+    status = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, page_count, &location);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed allocating %lu pages: %r\n", page_count, status);
+        return (ReadResult) { status, 0, 0 };
     }
 
     status = uefi_call_wrapper(kernel_handle->Read, 3, kernel_handle, &read_size, location);
@@ -78,5 +80,5 @@ ReadResult read_into_buffer(CHAR16 *path, EFI_FILE_HANDLE volume) {
     }
 
     Print(L"Read at %llx, size %lld.\n", location, read_size);
-    return (ReadResult) { EFI_SUCCESS, location, read_size };
+    return (ReadResult) { EFI_SUCCESS, (void*) location, read_size };
 }

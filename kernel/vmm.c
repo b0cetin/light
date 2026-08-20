@@ -107,15 +107,15 @@ PML4 *vmm_create_user_address_space() {
     // way to begin optimization in the future.
 }
 
-// Will destroy all user tables and free all memory.
-void vmm_destroy_user_address_space_and_free_memory(PML4 *plm4) {
-    if (plm4 == kernel_pml4)
-        PANIC("vmm_destroy_user_address_space() called on kernel PLM4.");
+// Will destroy all user tables.
+void vmm_destroy_user_address_space(PML4 *pml4) {
+    if (pml4 == kernel_pml4)
+        PANIC("vmm_destroy_user_address_space() called on kernel PML4.");
 
     for (uint16_t i = 0; i < 256; i++) {
-        if (!(plm4[i] & PT_PRESENT)) continue;
+        if (!(pml4[i] & PT_PRESENT)) continue;
 
-        uint64_t *pdpt = p2v(plm4[i] & PT_ADDRESS_MASK);
+        uint64_t *pdpt = p2v(pml4[i] & PT_ADDRESS_MASK);
 
         for (uint16_t j = 0; j < 512; j++) {
             if (!(pdpt[j] & PT_PRESENT)) continue;
@@ -127,16 +127,19 @@ void vmm_destroy_user_address_space_and_free_memory(PML4 *plm4) {
 
                 uint64_t *pt = p2v(pd[k] & PT_ADDRESS_MASK);
 
-                for (uint16_t l = 0; l < 512; l++) {
-                    if (!(pt[l] & PT_PRESENT)) continue;
+                // for (uint16_t l = 0; l < 512; l++) {
+                //     if (!(pt[l] & PT_PRESENT)) continue;
 
-                    uint64_t phys_frame = pt[l] & PT_ADDRESS_MASK;
+                //     // uint64_t phys_frame = pt[l] & PT_ADDRESS_MASK;
 
-                    pmm_free_page(phys_frame);
+                //     // pmm_free_page(phys_frame);
 
-                    // NOTE: Reference counting will be essential before freeing
-                    // once shared memory between processes become a thing.
-                }
+                //     // NOTE: Reference counting will be essential before freeing
+                //     // once shared memory between processes become a thing.
+                // }
+
+                // ^ Removed functionality. Removed because memory other than
+                // the user's own memory may have been mapped.
 
                 memzero(pt, 4096);
                 pmm_free_page(v2p(pt));
@@ -150,10 +153,10 @@ void vmm_destroy_user_address_space_and_free_memory(PML4 *plm4) {
         pmm_free_page(v2p(pdpt));
     }
 
-    memzero(plm4, 4096);
-    pmm_free_page(v2p(plm4));
+    memzero(pml4, 4096);
+    pmm_free_page(v2p(pml4));
 
-    kprintln("VMM: Destroyed user PLM4 on %lx.", plm4);
+    kprintln("VMM: Destroyed user PML4 on %lx.", pml4);
 }
 
 void vmm_switch_to_user_address_space(PML4 *plm4) {

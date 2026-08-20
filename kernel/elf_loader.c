@@ -84,7 +84,9 @@ typedef struct __attribute__((packed)) {
     uint64_t alignment;
 } ELFProgramHeader;
 
-bool check_elf_validity(void *elf) {
+bool check_elf_validity(void *elf, size_t length) {
+    if (length < sizeof(ELFHeaderIdentifier)) return false;
+
     uint8_t *magic = elf;
 
     if (magic[0] != 0x7F || magic[1] != 'E' || magic[2] != 'L' || magic[3] != 'F') {
@@ -144,14 +146,25 @@ bool check_elf_validity(void *elf) {
 }
 
 // Returns the entry point according to the given user address space.
-void *load_elf(PML4 *user_address_space, void *content) {
-    if (!check_elf_validity(content)) return null;
+void *load_elf(PML4 *user_address_space, void *content, size_t len) {
+    if (!check_elf_validity(content, len)) return null;
 
+    if (len < sizeof(ELFHeader)) return null;
     ELFHeader *header = content;
 
+    if (len < header->program_header_table_offset) return null;
     ELFProgramHeader *program_header = (ELFProgramHeader*)((char*)content + header->program_header_table_offset);
 
     // TODO: Keep track of pages allocated to this process.
+    // The PML4 already does that in some way, but a dedicated
+    // method would probably be a more ideal approach.
+
+    if (len < (uint64_t) header->program_header_table_entry_size * header->program_header_table_entry_count
+        + header->program_header_table_offset)
+        return null;
+    
+    if (header->program_header_table_entry_size != sizeof(ELFProgramHeader))
+        return null;
 
     for (uint16_t i = 0; i < header->program_header_table_entry_count; i++, program_header = (ELFProgramHeader*) ((char*)program_header + header->program_header_table_entry_size)) {
         switch (program_header->type) {
@@ -177,6 +190,17 @@ void *load_elf(PML4 *user_address_space, void *content) {
                 uint64_t page_offset = program_header->virtual_address & 0xFFFUL;
 
                 uint64_t bytes_copied = 0;
+
+                uint64_t end;
+                if (__builtin_add_overflow(program_header->data_offset, program_header->file_size, &end))
+                    return null; // Guard against program sections that are out of range.
+                if (len < end) return null;
+
+                if (program_header->virtual_address + program_header->mem_size < program_header->virtual_address)
+                    return null; // Check for address overflows
+
+                if (program_header->file_size > program_header->mem_size)
+                    return null; // File size can never exceed memory size
 
                 for (uint64_t i = 0; i < num_pages; i++) {
                     uint64_t physical_address = pmm_alloc_page();

@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define PROCESS_NAME_MAX UINT8_MAX
+
 typedef enum { THREAD_READY, THREAD_RUNNING, THREAD_TERMINATED } ThreadState;
 typedef enum { PROCESS_ALIVE, PROCESS_TERMINATING } ProcessState;
 

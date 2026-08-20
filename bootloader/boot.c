@@ -142,7 +142,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     UINT64 kernel_entry_ptr = load_elf_file(kernel_result.location);
 
     Print(L"Freeing kernel elf file...\n");
-    FreePool(kernel_result.location);
+    uefi_call_wrapper(BS->FreePages, 2, kernel_result.location, ((kernel_result.size + 0xFFF) & ~0xFFF) / 4096);
 
     Print(L"Beginning boot info construction...\n");
     BootInfo bootInfo;

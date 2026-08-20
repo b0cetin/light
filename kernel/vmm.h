@@ -34,7 +34,7 @@ void vmm_map(PML4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void vmm_kmap_mmio(uint64_t phys, uint64_t size);
 
 PML4 *vmm_create_user_address_space();
-void vmm_destroy_user_address_space_and_free_memory(PML4 *plm4);
+void vmm_destroy_user_address_space(PML4 *plm4);
 
 void vmm_switch_to_user_address_space(PML4 *plm4);
 void vmm_switch_to_kernel_address_space();

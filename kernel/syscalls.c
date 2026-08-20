@@ -3,6 +3,7 @@
 #include "allocator.h"
 #include "context_switching.h"
 #include "debugging.h"
+#include "elf_loader.h"
 #include "kernel_lib.h"
 #include "msr.h"
 #include "processes.h"
@@ -64,7 +65,7 @@ bool is_valid_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the ac
     if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->cr3, ptr, &phys, &flags))
         return false;
 
-    uint64_t mask = PT_PRESENT | PT_USER | PT_RW | PT_NX;
+    uint64_t mask = PT_PRESENT | PT_USER;// | PT_RW | PT_NX;
     return (flags & mask) == mask; 
 }
 
@@ -83,7 +84,7 @@ int64_t sys_print(const char* buf) {
     memcpy(str, PRINT_RREFIX, sizeof(PRINT_RREFIX));
     memcpy(str + sizeof(PRINT_RREFIX) - 1, buf, len);
 
-    kernel_printf(str);
+    kprintln(str);
 
     kfree(str);
     return 0;
@@ -140,7 +141,7 @@ int64_t sys_wait_thread(uint64_t id, void **out_result) {
     Thread *target = process_try_get_thread_from_id(ctx_switching_get_active_thread()->owner, id);
 
     if (target == null) {
-        kprintln("Thread %ld of process %ld invoked sys_wait_thread with an invalid thread id.",
+        kprintln("SYSCALLS: sys_wait_thread: Thread %ld of process %ld invoked sys_wait_thread with an invalid thread id.",
             ctx_switching_get_active_thread()->local_id, ctx_switching_get_active_thread()->owner->pid);
         return -1;
     }
@@ -162,23 +163,60 @@ uint64_t sys_get_pid() {
     return ctx_switching_get_active_thread()->owner->pid;
 }
 
+#define SYS_CREATE_PROCESS_FLAGS_CRITICAL 0x1
 int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t *out_pid, uint64_t flags) {
     if (ctx_switching_get_active_thread()->owner->pid != PROCESS_INIT_PID)
     {
-        kprintln("Process %ld tried to invoke sys_create_process, but it's not the init process! (expected %ld)",
+        kprintln("SYSCALLS: sys_create_process: Process %ld tried to invoke sys_create_process, but it's not the init process! (expected %ld)",
             ctx_switching_get_active_thread()->owner->pid, PROCESS_INIT_PID);
         return -1;
     }
 
-    if (!is_valid_user_range((uintptr_t) content, content_len)) return -1;
-    if (!is_valid_user_range((uintptr_t) name, name_len)) return -1;
-    if (!is_valid_user_range((uintptr_t) out_pid, sizeof(uint64_t*))) return -1;
+    if (!is_valid_user_range((uintptr_t) content, content_len)) {
+        kprintln("SYSCALLS: sys_create_process: User-supplied content range is not valid.");
+        return -1;
+    }
+    if (!is_valid_user_range((uintptr_t) name, name_len)) {
+        kprintln("SYSCALLS: sys_create_process: User-supplied name range is not valid. Size: %ld, address: %lx", name_len, (uint64_t) name);
+        return -1;
+    }
+    if (!is_valid_user_range((uintptr_t) out_pid, sizeof(uint64_t*))) {
+        kprintln("SYSCALLS: sys_create_process: User-supplied out_pid parameter is not valid.");
+        return -1;
+    }
 
-    PANIC("sys_create_process not implemented!");
+    if (name_len >= PROCESS_NAME_MAX) {
+        kprintln("SYSCALLS: sys_create_process: Requested name for process is too big: %ld bytes", name_len);
+        return -1;
+    }
+
+    PML4* address_space = vmm_create_user_address_space();
+
+    void *entry_point = load_elf(address_space, content, content_len);
+    if (entry_point == null) {
+        kprintln("SYSCALLS: sys_create_process: Failure loading ELF file.");
+        vmm_destroy_user_address_space(address_space); // FIXME: Memory leak: Clean up ELF file.
+        return -1;
+    }
+
+    char *c_name = kmalloc(name_len + 1);
+    memcpy(c_name, name, name_len);
+    c_name[name_len] = '\0';
+
+    Process *process;
+
+    if (flags & SYS_CREATE_PROCESS_FLAGS_CRITICAL)
+        process = process_create_critical(entry_point, address_space, c_name);
+    else
+        process = process_create(entry_point, address_space, c_name);
+
+    *out_pid = process->pid;
+    return 0;
 }
 
 int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
-                          uint64_t arg3, uint64_t arg4, uint64_t arg5)
+                          uint64_t arg3, uint64_t arg4, uint64_t arg5,
+                          uint64_t arg6)
 {
     switch (call_number) {
         case 0:
@@ -200,6 +238,10 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
             return sys_get_thread_id();
         case 7:
             return sys_get_pid();
+        case 8:
+            return sys_create_process((void*) arg1, arg2,
+                    (const char*) arg3, arg4,
+                    (uint64_t*) arg5, arg6);
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;

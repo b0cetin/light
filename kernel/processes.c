@@ -38,7 +38,7 @@ Process *process_create_critical(void *entry, PML4 *pml4, char *path) {
 Process *process_create(void *entry, PML4 *pml4, char *path) {
     Process *new_process = allocate_process();
 
-    size_t path_size = strnlen(path, UINT8_MAX) + 1;
+    size_t path_size = strnlen(path, PROCESS_NAME_MAX) + 1;
     char *new_path = kmalloc(path_size);
     memcpy(new_path, path, path_size);
 
@@ -187,14 +187,13 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
             teardown_thread(thread, -1);
     }
 
-    // TODO: At this stage, you'd also free all memory allocated to the process,
+    // FIXME: At this stage, you'd also free all memory allocated to the process,
     // but that's not a thing right now so I'll let this memory leak pass.
-    // INCORRECT
 
     kfree(process->name);
     process->name = null;
 
-    vmm_destroy_user_address_space_and_free_memory(process->cr3); // Already frees.
+    vmm_destroy_user_address_space(process->cr3);
     process->cr3 = null;
 
     if (process->prev != null) process->prev->next = process->next;
