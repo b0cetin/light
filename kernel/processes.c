@@ -56,7 +56,7 @@ Process *process_create(void *entry, PML4 *pml4, char *path) {
 
     kprintln("PROC: Created process %ld from \"%s\".", new_process->pid, path);
 
-    process_create_thread(entry, new_process);
+    process_create_thread(entry, 0, new_process);
 
     return new_process;
 }
@@ -81,7 +81,7 @@ static Thread *allocate_thread(Process *process) {
     return new_thread;
 }
 
-Thread *process_create_thread(void *entry, Process *process) {
+Thread *process_create_thread(void *entry, uint64_t arg0, Process *process) {
     Thread *thread = allocate_thread(process);
     
     thread->kernel_stack_base = p2v(pmm_alloc_page());
@@ -114,7 +114,7 @@ Thread *process_create_thread(void *entry, Process *process) {
     *--sp = 0; // r9
     *--sp = 0; // r8
     *--sp = 0; // rbp
-    *--sp = 0; // rdi
+    *--sp = arg0; // rdi
     *--sp = 0; // rsi
     *--sp = 0; // rdx
     *--sp = 0; // rcx

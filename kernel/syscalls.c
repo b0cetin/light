@@ -90,13 +90,13 @@ int64_t sys_print(const char* buf) {
     return 0;
 }
 
-int64_t sys_create_thread(void *function, uint64_t *out_thread_id) {
+int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id) {
     // kprintln("SYSCALLS: sys_create_thread called by %ld with entry point %lx.", ctx_switching_get_active_thread()->local_id, (uint64_t) function);
 
     if (!is_valid_user_range((uintptr_t) out_thread_id, 8)) return -1;
 
-    Thread *thread = process_create_thread(function, ctx_switching_get_active_thread()->owner);
-    *out_thread_id = thread->local_id; // FIXME: Pointer checks & safeguards
+    Thread *thread = process_create_thread(function, (uint64_t) arg, ctx_switching_get_active_thread()->owner);
+    *out_thread_id = thread->local_id;
     return 0;
 }
 
@@ -163,8 +163,8 @@ uint64_t sys_get_pid() {
     return ctx_switching_get_active_thread()->owner->pid;
 }
 
-#define SYS_CREATE_PROCESS_FLAGS_CRITICAL 0x1
-int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t *out_pid, uint64_t flags) {
+
+int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t *out_pid) {
     if (ctx_switching_get_active_thread()->owner->pid != PROCESS_INIT_PID)
     {
         kprintln("SYSCALLS: sys_create_process: Process %ld tried to invoke sys_create_process, but it's not the init process! (expected %ld)",
@@ -205,10 +205,7 @@ int64_t sys_create_process(void *content, size_t content_len, const char* name, 
 
     Process *process;
 
-    if (flags & SYS_CREATE_PROCESS_FLAGS_CRITICAL)
-        process = process_create_critical(entry_point, address_space, c_name);
-    else
-        process = process_create(entry_point, address_space, c_name);
+    process = process_create(entry_point, address_space, c_name);
 
     *out_pid = process->pid;
     return 0;
@@ -222,7 +219,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
         case 0:
             return sys_print((char*) arg1);
         case 1:
-            return sys_create_thread((void*) arg1, (uint64_t*) arg2);
+            return sys_create_thread((void*) arg1, (void *)arg2, (uint64_t*) arg3);
         case 2:
             sys_exit(arg1);
             return 0;
@@ -241,7 +238,7 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
         case 8:
             return sys_create_process((void*) arg1, arg2,
                     (const char*) arg3, arg4,
-                    (uint64_t*) arg5, arg6);
+                    (uint64_t*) arg5);
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;

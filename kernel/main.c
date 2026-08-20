@@ -8,7 +8,6 @@
 #include "idt.h"
 #include "msr.h"
 #include "pic.h"
-#include "pit.h"
 #include "pmm.h"
 #include "processor_info.h"
 #include "ps2_keyboard_driver.h"

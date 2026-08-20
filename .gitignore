@@ -7,3 +7,5 @@
 
 /qemu
 .DS_Store
+
+/user/libc/libc.a

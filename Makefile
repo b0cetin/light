@@ -17,6 +17,7 @@ kernel:
 	make -C kernel -f kernel.mk
 
 user:
+	make -C user/libc all
 	make -C user/init all
 	make -C user/test all
 

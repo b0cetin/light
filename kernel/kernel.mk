@@ -5,6 +5,8 @@ LD      := $(TARGET)-ld
 # OBJCOPY := $(TARGET)-objcopy
 # LIBGCC  := $(shell $(CC) -print-libgcc-file-name)
 
+Q ?= @
+
 OUT := ../dist
 TMP := /tmp/kernel-build
 
@@ -33,7 +35,8 @@ CFLAGS := \
     -O2 \
     -g \
     -MMD -MP \
-    -Wall -Wextra
+    -Wall -Wextra \
+    -mno-sse -mno-sse2 -mno-mmx -mno-80387
 #     -Werror
 
 ASFLAGS := \

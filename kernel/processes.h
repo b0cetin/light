@@ -62,7 +62,7 @@ typedef struct Process {
 
 Process *process_create(void *entry, PML4 *plm4, char *path);
 Process *process_create_critical(void *entry, PML4 *plm4, char *path);
-Thread *process_create_thread(void *entry, Process *process);
+Thread *process_create_thread(void *entry, uint64_t arg0, Process *process);
 
 bool process_begin_thread_teardown(Thread *thread, uint64_t result);
 bool process_begin_process_teardown(Process* process, int64_t status);
