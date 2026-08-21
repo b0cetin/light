@@ -44,8 +44,12 @@ static Thread *pick_next_thread() {
     return null;
 }
 
+uint64_t switch_count = 0;
 uint64_t isr_context_switch(uint64_t rsp) {
-    kprintln("switching!");
+    if (switch_count++ >= 64) {
+        kprintln("CTX: Switched 64 times.");
+        switch_count = 0;
+    }
 
     active_thread->kernel_rsp = rsp;
     Process *old_process = active_thread->owner;

@@ -108,3 +108,30 @@ static inline int64_t sys_create_process(void *content, size_t content_len, cons
 
     return ret;
 }
+
+#define SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED -2
+#define SYS_ERR_IRQCTL_AWAIT_DUPLICATE -3
+#define SYS_ERR_IRQCTL_AWAIT_CANCELLED -4
+#define SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED -5
+#define SYS_ERR_IRQCTL_VECTOR_IN_USE -6
+#define SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE -7
+#define SYS_ERR_IRQCTL_REQUEST_INVALID -8
+#define SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING -9
+typedef enum {
+    IRQCTL_SET    = 0x0,
+    IRQCTL_AWAIT  = 0x1,
+    IRQCTL_CANCEL = 0x2,
+    IRQCTL_UNSET  = 0x3,
+} IRQCTLRequest;
+static inline int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector) {
+    int64_t ret;
+
+    asm volatile (
+        "syscall\n"
+        : "=a" (ret)
+        : "a" (9), "D" (request), "S" (vector)
+        :  "rcx", "r11", "memory"
+    );
+
+    return ret;
+}

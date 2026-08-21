@@ -140,7 +140,7 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     vmm_switch_to_kernel_address_space();
 
     pmm_free_page(v2p(thread->kernel_stack_base));
-    pmm_free_page(thread->user_stack_phys_base); // Isn't this kinda handled by process termination?
+    pmm_free_page(thread->user_stack_phys_base);
 
     thread->kernel_stack_base = 0;
     thread->kernel_rsp = 0;
@@ -149,8 +149,17 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     thread->user_stack_mapped_base = 0;
     thread->user_stack_size = 0;
 
-    thread->state = THREAD_TERMINATED;
-    thread->result = result;
+    thread->state = THREAD_TERMINATED; // TODO: Free terminated threads and remove this state.
+    
+    ThreadChainItem *item = thread->unblock_on_termination;
+    while (item != null) {
+        ThreadChainItem *next = item->next;
+
+        process_unblock_thread(item->thread, result);
+
+        kfree(item);
+        item = next;
+    }
 
     thread->owner->thread_count--;
 
@@ -162,7 +171,7 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     
     // There are no threads remaining.
 
-    kprintln("Process %ld no longer has any threads running.", thread->owner->pid);
+    kprintln("PROC: Process %ld no longer has any threads running.", thread->owner->pid);
 
     teardown_process_with_switch(thread->owner, result);
 }
@@ -244,4 +253,55 @@ Thread *process_try_get_thread_from_id(Process *process, uint64_t id) {
 
 void process_crash_with_switch(Process *process) {
     process_begin_process_teardown(process, -1);
+}
+
+void process_block_thread(Thread* thread, ThreadBlockReason reason, ThreadBlockTarget target) {
+    thread->block_reason = reason;
+    thread->block_target = target;
+    thread->wake_result = 0;
+    thread->state = THREAD_BLOCKED;
+
+    kprintln("PROC: Thread %ld of process %ld has been blocked with reason %ld.",
+        thread->local_id, thread->owner->pid, reason);
+}
+
+void process_unblock_thread(Thread *thread, uint64_t result) {
+    if (thread->state != THREAD_BLOCKED) {
+        kprintln("PROC: process_unblock_thread called on unblocked thread %ld of process %ld.",
+            thread->local_id, thread->owner->pid);
+        return;
+    }
+
+    thread->block_reason = THREADBLOCK_NULL;
+    thread->wake_result = result;
+    thread->state = THREAD_READY;
+
+    kprintln("PROC: Thread %ld of process %ld has been unblocked.",
+        thread->local_id, thread->owner->pid);
+}
+
+bool process_block_thread_for_another(Thread *thread, Thread *other) {
+    if (thread->owner != other->owner)
+        return false;
+
+    ThreadChainItem *new_item = kmalloc(sizeof(ThreadChainItem));
+    if (new_item == null) {
+        kprintln("PROC: process_block_thread_for_another: kmalloc(ThreadChainItem) returned null!");
+        return false;
+    }
+
+    process_block_thread(thread, THREADBLOCK_ANOTHER_THREAD, (ThreadBlockTarget) { .target_thread_id = other->local_id });
+
+    new_item->thread = thread;
+
+    if (other->unblock_on_termination != null) {
+        ThreadChainItem *chain_item = other->unblock_on_termination;
+        while (chain_item->next != null) chain_item = chain_item->next;
+        chain_item->next = new_item;
+    }
+    else {
+        other->unblock_on_termination = new_item;
+    }
+
+    return true;
 }

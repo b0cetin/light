@@ -7,9 +7,7 @@
 void *thread_test(void *arg) {
     sys_print("This is a printing log from another thread!");
 
-    int64_t input = (int64_t) arg;
-
-    sys_exit_thread((void*) (input + sys_get_thread_id()));
+    sys_exit_thread((void*) 0);
 }
 
 int main(BootModule *modules) {
@@ -21,8 +19,6 @@ int main(BootModule *modules) {
         sys_print("Could not create new thread. Terminating.");
         return -1;
     }
-
-    sys_print("Created new thread.");
 
     uint64_t result;
     if (sys_wait_thread(new_t, (void**) &result) != SYS_SUCCESS) {
@@ -43,7 +39,9 @@ int main(BootModule *modules) {
         return -1;
     }
 
-    sys_yield();
+    sys_interrupt_control(IRQCTL_SET, 1);
 
-    return result + sys_get_pid();
+    while (1);
+
+    return -1;
 }
