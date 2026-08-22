@@ -10,7 +10,6 @@
 #include "pic.h"
 #include "pmm.h"
 #include "processor_info.h"
-#include "ps2_keyboard_driver.h"
 #include "serial.h"
 #include "syscalls.h"
 #include "userspace.h"
@@ -53,9 +52,7 @@ void kernel_main(BootInfo *boot_info) {
 
     cpuid_check_apic() ? kprintln("APIC is supported.") : kprintln("APIC is not supported.");
 
-    fb_clear(COLOR_BLACK);
-
-    fb_draw_text(fb_width() / 2 - 40, fb_height() / 2 - 8, "light", COLOR_WHITE);
+    fb_draw_text(fb_width() / 2 - 40, fb_height() - 200, "light", COLOR_WHITE);
 
     pmm_print_stats();
 

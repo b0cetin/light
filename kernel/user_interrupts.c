@@ -5,6 +5,7 @@
 #include "pic.h"
 #include "processes.h"
 #include "types.h"
+#include <stdint.h>
 
 static ReservableIRQ table[RESERVABLE_IRQ_TABLE_MAX];
 
@@ -96,4 +97,22 @@ void user_irq_cancel(uint8_t vector, Process *process) {
 
     process_unblock_thread(entry->awaiter, USER_IRQ_AWAKE_CANCEL);
     entry->awaiter = null;
+}
+
+void user_irq_force_unreserve_all(Process *process) {
+    uint8_t unreserved_count = 0;
+
+    for (uint8_t reservation_index = 0; reservation_index < RESERVABLE_IRQ_TABLE_MAX; reservation_index++) {
+        if (table[reservation_index].reserver == process) {
+            table[reservation_index].reserver = null;
+            table[reservation_index].awaiter = null;
+            
+            unreserved_count++;
+        }
+    }
+
+    if (unreserved_count > 0) {
+        kprintln("USER_IRQ: Unreserved all reservations of process %ld. There were %d.",
+            process->pid, unreserved_count);
+    }
 }

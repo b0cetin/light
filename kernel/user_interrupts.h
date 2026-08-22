@@ -28,6 +28,7 @@ ReservableIRQ *user_irq_get_reservation(uint8_t vector);
 
 void user_irq_reserve(uint8_t vector, Process *process);
 void user_irq_unreserve(uint8_t vector, Process *process);
+void user_irq_force_unreserve_all(Process *process);
 
 void user_irq_await(uint8_t vector, Thread *thread);
 void user_irq_awaken(uint8_t vector);

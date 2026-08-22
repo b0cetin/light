@@ -6,6 +6,7 @@
 #include "kernel_lib.h"
 #include "pmm.h"
 #include "types.h"
+#include "user_interrupts.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -195,6 +196,8 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
         if (thread->state != THREAD_TERMINATED)
             teardown_thread(thread, -1);
     }
+
+    user_irq_force_unreserve_all(process);
 
     // FIXME: At this stage, you'd also free all memory allocated to the process,
     // but that's not a thing right now so I'll let this memory leak pass.
