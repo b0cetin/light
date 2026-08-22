@@ -9,10 +9,11 @@
 int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id) {
     // kprintln("SYSCALLS: sys_create_thread called by %ld with entry point %lx.", ctx_switching_get_active_thread()->local_id, (uint64_t) function);
 
-    if (!is_valid_user_range((uintptr_t) out_thread_id, 8)) return -1;
+    if (!is_valid_user_range((uintptr_t) out_thread_id, 8) && out_thread_id != 0) return -1;
 
     Thread *thread = process_create_thread(function, (uint64_t) arg, ctx_switching_get_active_thread()->owner);
-    *out_thread_id = thread->local_id;
+    if (out_thread_id != 0) *out_thread_id = thread->local_id;
+    
     return 0;
 }
 

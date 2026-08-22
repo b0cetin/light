@@ -6,7 +6,9 @@
 Prints a string to the kernel debug log.
 
 ## 1: int64_t sys_create_thread(void \*function, void \*arg, uint64_t \*out_thread_id)
-Creates a new thread that executes from the given address. Functions are expected to have the signature `void *function(void *arg)`. Returns -1 for failure and 0 for success. If function succeeds, then the thread's local id is written to the `out_thread_id` parameter. If `function` is an invalid address, then upon the switching to it for the first time will crash the application.
+Creates a new thread that executes from the given address. Functions are expected to have the signature `void *function(void *arg)`. Returns -1 for failure and 0 for success. If function succeeds, then the thread's local id is written to the `out_thread_id` parameter, but only if the parameter isn't null. If `function` is an invalid address, then upon the switching to it for the first time will crash the application.
+
+> Optional parameter: `out_thread_id`
 
 ## 2: void sys_exit(int64_t status)
 Terminates the whole process with given status code.
@@ -30,9 +32,9 @@ Returns the process id of the thread invoking the call.
 Only reserved for the init process. Loads ELF executable from given memory and gives it the name provided. Returns negative values for errors and 0 for success. If success, the newly created process' pid is written to the `out_pid` parameter. If any of the pointers/ranges given (`content`, `name`, `out_pid`) are invalid, the function will return -1 with no changes.
 
 ## 9: int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector)
-Configures how the kernel reacts to the specified interrupt at the given `vector`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_IRQCTL_REQUEST_INVALID** immediately. The only accepted range the parameter `vector` can be is within `(0, 200)` (where `0` and `200` are not allowed). If this range is not respected, the function will return **SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE** immediately. The vector index is relative to where the PIC/LAPIC was remapped to. For example, using a vector of 14 will not override the kernel's page fault handler.
+Configures how the kernel reacts to the specified interrupt at the given `vector`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_IRQCTL_REQUEST_INVALID** immediately. The only accepted range the parameter `vector` can be is within `(0, 15]` (where `0` is not allowed) and not `2`. If this range is not respected, the function will return **SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE** immediately. The vector index is relative to where the PIC was remapped to. For example, using a vector of 14 will not override the kernel's page fault handler.
 
-> *Developer's Note:* The number 200 was selected to allow headroom for the CPU exceptions (remap 32).
+> *Developer's Note:* The range constraints were selected that way because that's all the PIC can offer. When APIC is implemented, this syscall will need revision.
 
 ### enum IRQCTLRequest
 

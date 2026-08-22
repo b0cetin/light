@@ -3,6 +3,7 @@
 #include "cpu_exceptions.h"
 #include "debugging.h"
 #include "types.h"
+#include "user_interrupts.h"
 #include <stdint.h>
 
 #define INTERRUPT_COUNT 224
@@ -22,6 +23,8 @@ void register_interrupt_handler(uint64_t interrupt_index, void (*int_handler)(In
 }
 
 void isr_handler(InterruptRegisters *regs) {
+    kprintln("Interrupt %d", regs->interrupt_number);
+
     if (regs->interrupt_number < 32) {
         handle_cpu_exception(regs);
         return;
@@ -33,9 +36,15 @@ void isr_handler(InterruptRegisters *regs) {
         PANIC("Interrupt index reached over possible threshold (%d): %d", INTERRUPT_COUNT, interrupt_index);
     }
 
-    if (int_handlers[interrupt_index] == null) {
-        PANIC("No handler registered for interrupt index: %d", interrupt_index);
+    if (int_handlers[interrupt_index] != null) {
+        int_handlers[interrupt_index](regs);
+        return;
     }
 
-    int_handlers[interrupt_index](regs);
+    if (user_irq_get_reservation(interrupt_index)->reserver != null) {
+        user_irq_awaken(interrupt_index);
+        return;
+    }
+
+    PANIC("No handler registered for interrupt index: %d", interrupt_index);
 }

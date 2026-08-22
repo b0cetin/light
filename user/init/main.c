@@ -4,44 +4,44 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void *thread_test(void *arg) {
-    sys_print("This is a printing log from another thread!");
+void *keyboard_watcher() {
+    sys_print("Keyboard watcher thread active.");
 
-    sys_exit_thread((void*) 0);
+    sys_interrupt_control(IRQCTL_SET, 1);
+
+    int64_t status;
+    while (1) {
+        status = sys_interrupt_control(IRQCTL_AWAIT, 1);
+
+        if (status == SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED) break;
+        if (status == SYS_ERR_IRQCTL_AWAIT_CANCELLED) break;
+
+        if (status == SYS_SUCCESS)
+            sys_print("Keyboard interrupt received!");
+        else
+            break;
+    }
+
+    sys_print("Break from while loop!");
+
+    sys_interrupt_control(IRQCTL_UNSET, 1);
+
+    sys_exit_thread((void*) status);
 }
 
 int main(BootModule *modules) {
     sys_print("Init started.");
 
-    uint64_t new_t;
-    
-    if (sys_create_thread(thread_test, (void*) 15, &new_t) != SYS_SUCCESS) {
-        sys_print("Could not create new thread. Terminating.");
+    uint64_t thread_id;
+    if (sys_create_thread(keyboard_watcher, NULL, &thread_id) != SYS_SUCCESS) {
+        sys_print("sys_create_thread failed.");
         return -1;
     }
-
-    uint64_t result;
-    if (sys_wait_thread(new_t, (void**) &result) != SYS_SUCCESS) {
-        sys_print("Failure waiting for thread. Terminating.");
-        return -1;
-    }
-
-    for (int i = 0; i < BOOT_MODULE_COUNT; i++) {
-        if (!modules[i].is_read) continue;
-
-        sys_print((char*) modules[i].path);
-    }
-
-    uint64_t pid;
-    if (sys_create_process((void *) modules[1].address, modules[1].size,
-        (const char*) &modules[1].path, 14, &pid) != SYS_SUCCESS) {
-        sys_print("Failure creating process.");
-        return -1;
-    }
-
-    sys_interrupt_control(IRQCTL_SET, 1);
 
     while (1);
 
-    return -1;
+    int64_t result;
+    sys_wait_thread(thread_id, (void**) &result);
+
+    return result;
 }

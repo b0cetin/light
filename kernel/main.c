@@ -42,7 +42,7 @@ void kernel_main(BootInfo *boot_info) {
     fb_init(boot_info);
 
     pic_remap(32); // After CPU exceptions
-    ps2_keyboard_init();
+    // ps2_keyboard_init();
 
     msr_ensure();
     syscalls_init();

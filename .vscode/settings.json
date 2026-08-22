@@ -7,5 +7,6 @@
     ],
     "files.associations": {
         "*.h": "c"
-    }
+    },
+    "remote.autoForwardPortsFallback": 0
 }

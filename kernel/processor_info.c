@@ -6,7 +6,7 @@ void cpuid_read_vendor(char result[13]) {
     uint32_t unused;
     uint32_t *res = (uint32_t *)result;
     cpuid(CPUID_GETVENDORSTRING, &unused, res, res + 2, res + 1);
-    result[13] = '\0';
+    result[12] = '\0';
 }
 
 bool cpuid_check_apic() {
