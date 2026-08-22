@@ -23,8 +23,6 @@ void register_interrupt_handler(uint64_t interrupt_index, void (*int_handler)(In
 }
 
 void isr_handler(InterruptRegisters *regs) {
-    kprintln("Interrupt %d", regs->interrupt_number);
-
     if (regs->interrupt_number < 32) {
         handle_cpu_exception(regs);
         return;

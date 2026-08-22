@@ -261,8 +261,9 @@ void process_block_thread(Thread* thread, ThreadBlockReason reason, ThreadBlockT
     thread->wake_result = 0;
     thread->state = THREAD_BLOCKED;
 
-    kprintln("PROC: Thread %ld of process %ld has been blocked with reason %ld.",
-        thread->local_id, thread->owner->pid, reason);
+    // kprintln("PROC: Thread %ld of process %ld has been blocked with reason %ld.",
+    //     thread->local_id, thread->owner->pid, reason);
+    // Silence frequent log
 }
 
 void process_unblock_thread(Thread *thread, uint64_t result) {
@@ -276,8 +277,9 @@ void process_unblock_thread(Thread *thread, uint64_t result) {
     thread->wake_result = result;
     thread->state = THREAD_READY;
 
-    kprintln("PROC: Thread %ld of process %ld has been unblocked.",
-        thread->local_id, thread->owner->pid);
+    // kprintln("PROC: Thread %ld of process %ld has been unblocked.",
+    //     thread->local_id, thread->owner->pid);
+    // Silence frequent log
 }
 
 bool process_block_thread_for_another(Thread *thread, Thread *other) {

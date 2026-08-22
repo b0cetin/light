@@ -115,7 +115,8 @@ void coalesce(BlockHeader *free_header) {
         BlockHeader* next_next = free_header->next->next;
         size_t next_size = free_header->next->size;
 
-        kprintln("ALLOC: Coalescing free header at %lx with next header at %lx...", free_header, free_header->next);
+        // kprintln("ALLOC: Coalescing free header at %lx with next header at %lx...", free_header, free_header->next);
+        // Silence frequent log
 
         memzero(free_header->next, sizeof(BlockHeader));
         free_header->size += next_size + sizeof(BlockHeader);
@@ -134,7 +135,8 @@ void coalesce(BlockHeader *free_header) {
         BlockHeader* current_next = free_header->next;
         size_t current_size = free_header->size;
 
-        kprintln("ALLOC: Coalescing free header at %lx with prev header at %lx...", free_header, free_header->prev);
+        // kprintln("ALLOC: Coalescing free header at %lx with prev header at %lx...", free_header, free_header->prev);
+        // Silence frequent log
 
         BlockHeader* prev = free_header->prev;
 
