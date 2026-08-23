@@ -9,7 +9,7 @@
 #define PROCESS_NAME_MAX UINT8_MAX
 
 typedef enum { THREAD_READY, THREAD_RUNNING, THREAD_TERMINATED, THREAD_BLOCKED } ThreadState;
-typedef enum { PROCESS_ALIVE, PROCESS_TERMINATING } ProcessState;
+typedef enum { PROCESS_ALIVE, PROCESS_TERMINATING, PROCESS_STARTING } ProcessState;
 
 typedef enum { THREADBLOCK_NULL, THREADBLOCK_ANOTHER_THREAD, THREADBLOCK_IRQ } ThreadBlockReason;
 typedef union { uint64_t target_thread_id; uint8_t irq_vector; } ThreadBlockTarget;
@@ -54,27 +54,27 @@ typedef struct {
 
 typedef struct Process {
     // Processor
-    PML4* cr3;
+    PML4* user_cr3;
+    bool is_ring_0;
 
     // Metadata
     ProcessState state;
     uint64_t pid;
     char *name;
-    bool is_critical;
 
     // Threads
     struct Thread *threads;
     size_t thread_count;
     uint64_t next_thread_id;
-    ProcessVASState vas;
+    ProcessVASState user_vas;
 
     // List
     struct Process *prev;
     struct Process *next;
 } Process;
 
-Process *process_create(void *entry, PML4 *plm4, char *path);
-Process *process_create_critical(void *entry, PML4 *plm4, char *path);
+Process *process_create(void *entry, PML4 *plm4, char *name);
+Process *process_create_kernel(void *entry, char *name);
 Thread *process_create_thread(void *entry, uint64_t arg0, Process *process);
 
 bool process_begin_thread_teardown(Thread *thread, uint64_t result);

@@ -8,7 +8,10 @@
 #include "vmm.h"
 #include <stdint.h>
 
-Thread *active_thread = null;
+static Thread *idle_thread = null;
+static bool has_init = false;
+
+static Thread *active_thread = null;
 
 static Thread *pick_next_thread() {
     if (active_thread == null) {
@@ -17,7 +20,8 @@ static Thread *pick_next_thread() {
                 if (thread->state == THREAD_READY) return thread;
             }
         }
-        return null;
+
+        return idle_thread;
     }
 
     for (Thread *thread = active_thread->next; thread != null; thread = thread->next) {
@@ -41,21 +45,23 @@ static Thread *pick_next_thread() {
 
     if (active_thread->state == THREAD_READY) return active_thread;
 
-    return null;
+    return idle_thread;
 }
 
-uint64_t switch_count = 0;
 uint64_t isr_context_switch(uint64_t rsp) {
-    if (switch_count++ >= 64) {
+    static uint64_t count = 0;
+
+    if (count++ >= 64) {
         kprintln("CTX: Switched 64 times.");
-        switch_count = 0;
+        count = 0;
     }
 
-    active_thread->kernel_rsp = rsp;
-    Process *old_process = active_thread->owner;
+    if (active_thread != null) {
+        active_thread->kernel_rsp = rsp;
 
-    if (active_thread->state == THREAD_RUNNING)
-        active_thread->state = THREAD_READY;
+        if (active_thread->state == THREAD_RUNNING)
+            active_thread->state = THREAD_READY;
+    }
     
     active_thread = pick_next_thread();
 
@@ -65,9 +71,10 @@ uint64_t isr_context_switch(uint64_t rsp) {
     tss_set_rsp0(kernel_stack_top);
     syscalls_set_kernel_stack(kernel_stack_top);
 
-    if (old_process != active_thread->owner) {
-        vmm_switch_to_user_address_space(active_thread->owner->cr3);
-    }
+    if (active_thread->owner->is_ring_0)
+        vmm_switch_to_kernel_address_space();
+    else
+        vmm_switch_to_user_address_space(active_thread->owner->user_cr3); // TODO: Optimize for setting to the same space back to back
 
     active_thread->state = THREAD_RUNNING;
 
@@ -88,17 +95,18 @@ void ctx_switching_switch_next_immediate()
     tss_set_rsp0(kernel_stack_top);
     syscalls_set_kernel_stack(kernel_stack_top);
 
-    vmm_switch_to_user_address_space(active_thread->owner->cr3);
+    vmm_switch_to_user_address_space(active_thread->owner->user_cr3);
 
     active_thread->state = THREAD_RUNNING;
 
     switch_to_context_immediately(active_thread->kernel_rsp);
 }
 
-void ctx_switching_set_initial_thread(Thread *thread) {
-    if (active_thread != null) PANIC("set_initial_thread(Thread) called when a thread is already running.");
+void ctx_switching_init(Thread *_idle_thread) {
+    if (has_init) PANIC("ctx_switching_init called when already initialized.");
 
-    active_thread = thread;
+    idle_thread = _idle_thread;
+    has_init = true;
 }
 
 Thread *ctx_switching_get_active_thread() {

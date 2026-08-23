@@ -38,8 +38,6 @@ int main(BootModule *modules) {
         return -1;
     }
 
-    while (1);
-
     int64_t result;
     sys_wait_thread(thread_id, (void**) &result);
 

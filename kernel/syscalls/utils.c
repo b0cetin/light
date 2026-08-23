@@ -15,7 +15,7 @@ bool is_valid_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the ac
 
     uint64_t flags, phys;
     
-    if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->cr3, ptr, &phys, &flags))
+    if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->user_cr3, ptr, &phys, &flags))
         return false;
 
     uint64_t mask = PT_PRESENT | PT_USER;// | PT_RW | PT_NX;

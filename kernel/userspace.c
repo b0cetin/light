@@ -57,6 +57,23 @@ static void patch_in_boot_modules(uint64_t boot_modules_base, Thread* initialize
     *sp = boot_modules_base;
 }
 
+// NOTE: I guess this shouldn't be here anymore as this is a kernel-space process?
+void idle_thread() {
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+static Thread *create_idle_thread() {
+    Process *process = process_create_kernel(idle_thread, "system_idle");
+
+    process->pid = PROCESS_IDLE_PID;
+    process->prev->next = null;
+    process->prev = null;
+
+    return process->threads;
+}
+
 // Drops into first loaded module.
 // This call never returns.
 void start_first_user_process(void) {
@@ -70,7 +87,7 @@ void start_first_user_process(void) {
 
     char* ascii_path = kmalloc(READ_MODULE_PATH_SIZE * 2);
     convert_utf16_to_ascii(boot_modules_get_all()->path, ascii_path);
-    Process *process = process_create_critical(entry_point, user_address_space, ascii_path);
+    Process *process = process_create(entry_point, user_address_space, ascii_path);
     kfree(ascii_path);
 
     Thread *thread = process->threads;
@@ -81,11 +98,9 @@ void start_first_user_process(void) {
     tss_set_rsp0(kernel_stack_top);
     syscalls_set_kernel_stack(kernel_stack_top);
 
-    kprintln("kernel_stack_top: %lx", (uint64_t) kernel_stack_top);
+    vmm_switch_to_user_address_space(process->user_cr3);
 
-    vmm_switch_to_user_address_space(process->cr3);
-
-    ctx_switching_set_initial_thread(thread);
+    ctx_switching_init(create_idle_thread());
 
     pit_init();
 

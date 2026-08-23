@@ -7,6 +7,7 @@
 #include "pmm.h"
 #include "types.h"
 #include "user_interrupts.h"
+#include "userspace.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -29,33 +30,52 @@ static Process *allocate_process() {
     return new_process;
 }
 
-Process *process_create_critical(void *entry, PML4 *pml4, char *path) {
-    Process *process = process_create(entry, pml4, path);
-    process->is_critical = true;
-
-    return process;
-}
-
-Process *process_create(void *entry, PML4 *pml4, char *path) {
+static Process *process_create_core(char *name) {
     Process *new_process = allocate_process();
 
-    size_t path_size = strnlen(path, PROCESS_NAME_MAX) + 1;
+    size_t path_size = strnlen(name, PROCESS_NAME_MAX) + 1;
     char *new_path = kmalloc(path_size);
-    memcpy(new_path, path, path_size);
+    memcpy(new_path, name, path_size);
 
-    new_process->cr3 = pml4;
     new_process->name = new_path;
     new_process->pid = next_pid++;
-    new_process->state = PROCESS_ALIVE;
-    new_process->is_critical = false;
+    new_process->state = PROCESS_STARTING;
 
     new_process->threads = null;
     new_process->thread_count = 0;
     new_process->next_thread_id = 0;
 
-    new_process->vas.next_stack_top = PROCESS_VAS_STACK_REGION_TOP;
+    kprintln("PROC: Created process %ld named \"%s\".", new_process->pid, name);
 
-    kprintln("PROC: Created process %ld from \"%s\".", new_process->pid, path);
+    return new_process;
+}
+
+Process *process_create(void *entry, PML4 *pml4, char *name) {
+    Process *new_process = process_create_core(name);
+
+    new_process->user_cr3 = pml4;
+    new_process->is_ring_0 = false;
+
+    new_process->user_vas.next_stack_top = PROCESS_VAS_STACK_REGION_TOP;
+
+    new_process->state = PROCESS_ALIVE;
+
+    process_create_thread(entry, 0, new_process);
+
+    return new_process;
+}
+
+// Kernel-space processes should absolutely not call syscalls.
+// There's no reason to perform syscalls. All kernel functionality is available.
+Process *process_create_kernel(void *entry, char *name) {
+    Process *new_process = process_create_core(name);
+
+    new_process->user_cr3 = null;
+    new_process->is_ring_0 = true;
+
+    new_process->state = PROCESS_ALIVE;
+
+    kprintln("PROC: This process runs in kernel space.");
 
     process_create_thread(entry, 0, new_process);
 
@@ -83,27 +103,34 @@ static Thread *allocate_thread(Process *process) {
 }
 
 Thread *process_create_thread(void *entry, uint64_t arg0, Process *process) {
+    bool is_ring_0 = process->is_ring_0;
+
     Thread *thread = allocate_thread(process);
     
     thread->kernel_stack_base = p2v(pmm_alloc_page());
     thread->kernel_stack_size = PAGE_SIZE;
 
-    thread->user_stack_phys_base = pmm_alloc_page();
-    thread->user_stack_size = PAGE_SIZE;
-    thread->user_stack_mapped_base = (void*) process->vas.next_stack_top;
+    uint64_t kernel_stack_top = ((uint64_t) thread->kernel_stack_base) + thread->kernel_stack_size;
 
-    process->vas.next_stack_top -= thread->user_stack_size + PAGE_SIZE; // Stack overflow guards by adding unmapped page in between.
+    uint64_t user_stack_top = 0;
+    if (!is_ring_0) {
+        thread->user_stack_phys_base = pmm_alloc_page();
+        thread->user_stack_size = PAGE_SIZE;
+        thread->user_stack_mapped_base = (void*) process->user_vas.next_stack_top;
 
-    uint64_t user_stack_top = ((uint64_t) thread->user_stack_mapped_base) + thread->user_stack_size;
+        process->user_vas.next_stack_top -= thread->user_stack_size + PAGE_SIZE; // Stack overflow guards by adding unmapped page in between.
 
-    vmm_map(process->cr3, (uint64_t) thread->user_stack_mapped_base, thread->user_stack_phys_base, PT_USER | PT_RW | PT_NX);
+        user_stack_top = ((uint64_t) thread->user_stack_mapped_base) + thread->user_stack_size;
+
+        vmm_map(process->user_cr3, (uint64_t) thread->user_stack_mapped_base, thread->user_stack_phys_base, PT_USER | PT_RW | PT_NX);
+    }
 
     uint64_t *sp = (uint64_t *)(thread->kernel_stack_base + thread->kernel_stack_size);
 
-    *--sp = 0x18 | 3; // SS (user data selector | RPL3)
-    *--sp = user_stack_top; // RSP
+    *--sp = is_ring_0 ? 0x10 : (0x18 | 3); // SS (user data selector | RPL3)
+    *--sp = is_ring_0 ? kernel_stack_top : user_stack_top; // RSP
     *--sp = 0x202; // RFLAGS: IF=1, bit1 reserved=1
-    *--sp = 0x20 | 3; // CS (user code selector | RPL3)
+    *--sp = is_ring_0 ? 0x8 : (0x20 | 3); // CS (user code selector | RPL3)
     *--sp = (uint64_t)entry; // RIP
 
     *--sp = 0; // r15
@@ -127,7 +154,10 @@ Thread *process_create_thread(void *entry, uint64_t arg0, Process *process) {
 
     thread->state = THREAD_READY;
 
-    kprintln("PROC: Created thread %ld for process %ld, user stack location: %lx / %lx.", thread->local_id, process->pid, thread->user_stack_phys_base, (uint64_t) thread->user_stack_mapped_base);
+    if (is_ring_0)
+        kprintln("PROC: Created thread %ld for process %ld, kernel stack location: %lx.", thread->local_id, process->pid, thread->kernel_stack_base);
+    else
+        kprintln("PROC: Created thread %ld for process %ld, user stack location: %lx / %lx.", thread->local_id, process->pid, thread->user_stack_phys_base, (uint64_t) thread->user_stack_mapped_base);
 
     return thread;
 }
@@ -205,20 +235,19 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
     kfree(process->name);
     process->name = null;
 
-    vmm_destroy_user_address_space(process->cr3);
-    process->cr3 = null;
+    vmm_destroy_user_address_space(process->user_cr3);
+    process->user_cr3 = null;
 
     if (process->prev != null) process->prev->next = process->next;
     if (process->next != null) process->next->prev = process->prev;
 
     uint64_t pid = process->pid;
-    bool was_critical = process->is_critical;
 
     kfree(process);
 
     kprintln("PROC: Process %ld terminated with status %ld.", pid, status);
 
-    if (was_critical) PANIC("Critical process %ld has been terminated!", pid);
+    if (pid == PROCESS_INIT_PID || pid == PROCESS_IDLE_PID) PANIC("Protected process %ld has been terminated!", pid);
 
     ctx_switching_switch_next_immediate();
 }
