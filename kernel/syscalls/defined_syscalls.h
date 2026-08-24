@@ -31,3 +31,11 @@ typedef enum {
     IRQCTL_UNSET  = 0x3,
 } IRQCTLRequest;
 int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector);
+
+typedef enum {
+    PIO_SIZE_BYTE  = 0x0,
+    PIO_SIZE_SHORT = 0x1,
+    PIO_SIZE_INT   = 0x2,
+} PORTIOSize;
+uint32_t sys_port_io_in(uint16_t port, PORTIOSize size);
+void sys_port_io_out(uint16_t port, PORTIOSize size, uint32_t out);

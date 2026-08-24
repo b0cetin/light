@@ -135,3 +135,29 @@ static inline int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vect
 
     return ret;
 }
+
+typedef enum {
+    PIO_SIZE_BYTE  = 0x0,
+    PIO_SIZE_SHORT = 0x1,
+    PIO_SIZE_INT   = 0x2,
+} PORTIOSize;
+static inline uint32_t sys_port_io_in(uint16_t port, PORTIOSize size) {
+    uint32_t ret;
+
+    asm volatile (
+        "syscall\n"
+        : "=a" (ret)
+        : "a" (10), "D" (port), "S" (size)
+        :  "rcx", "r11", "memory"
+    );
+
+    return ret;
+}
+static inline void sys_port_io_out(uint16_t port, PORTIOSize size, uint32_t out) {
+    asm volatile (
+        "syscall\n"
+        :
+        : "a" (1), "D" (port), "S" (size), "d" (out)
+        :  "rcx", "r11", "memory"
+    );
+}

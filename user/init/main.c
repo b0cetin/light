@@ -1,5 +1,6 @@
 
 #include "boot_module.h"
+#include <stdio.h>
 #include <syscalls.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -16,10 +17,12 @@ void *keyboard_watcher() {
         if (status == SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED) break;
         if (status == SYS_ERR_IRQCTL_AWAIT_CANCELLED) break;
 
-        if (status == SYS_SUCCESS)
-            sys_print("Keyboard interrupt received!");
-        else
+        if (status != SYS_SUCCESS)
             break;
+
+        uint8_t scancode = sys_port_io_in(0x60, PIO_SIZE_BYTE);
+
+        println("Scancode: %#hhx", scancode);
     }
 
     sys_print("Break from while loop!");
@@ -31,6 +34,13 @@ void *keyboard_watcher() {
 
 int main(BootModule *modules) {
     sys_print("Init started.");
+
+    println("Listing loaded modules now.");
+    for (int i = 0; i < BOOT_MODULE_COUNT; i++) {
+        BootModule *module = &modules[i];
+        if (!module->is_read) continue;
+        println("%i: %s", i, module->path);
+    }
 
     uint64_t thread_id;
     if (sys_create_thread(keyboard_watcher, NULL, &thread_id) != SYS_SUCCESS) {

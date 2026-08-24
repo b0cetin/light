@@ -77,9 +77,13 @@ int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2,
                     (uint64_t*) arg5);
         case 9:
             return sys_interrupt_control((IRQCTLRequest) arg1, arg2);
+        case 10:
+            return sys_port_io_in(arg1, (PORTIOSize) arg2);
+        case 11:
+            sys_port_io_out(arg1, (PORTIOSize) arg2, arg3);
+            return 0;
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return -1;
     }
-    return 0;
 }

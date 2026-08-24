@@ -1,7 +1,6 @@
 
 #include "user_interrupts.h"
 #include "debugging.h"
-#include "io.h"
 #include "pic.h"
 #include "processes.h"
 #include "types.h"
@@ -74,7 +73,6 @@ void user_irq_awaken(uint8_t vector)
 {
     ReservableIRQ *entry = user_irq_get_reservation(vector);
 
-    inb(0x60); // TODO: Remove
     pic_send_eoi(vector);
 
     if (entry->awaiter == null) {

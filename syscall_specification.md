@@ -65,3 +65,19 @@ Configures how the kernel reacts to the specified interrupt at the given `vector
 8. **SYS_ERR_IRQCTL_REQUEST_INVALID (-8)**: Indicates that the request code is unrecognized.
 
 9. **SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING (-9)**: Indicates that the requested vector cannot be unset because an IRQCTL_AWAIT operation is underway.
+
+## 10: uint32_t sys_port_io_in(uint16_t port, PORTIOSize size)
+
+Reads the processor port at `port` and then zero-extends the result to 32-bits if the requested size is too small. Returns 0 if an invalid `size` is given. *(see: **PORTIOSize**)*
+
+## 11: void sys_port_io_out(uint16_t port, PORTIOSize size, uint32_t out)
+
+Writes out the value at the given `size` to the `port`. If `size` is not **PIO_SIZE_INT**, the function will discard the upper bits. Beware for signed integers. Does nothing if an invalid `size` is given.
+
+### enum PORTIOSize
+
+1. **PIO_SIZE_BYTE (0x0)**: Uses `inb/outb`.
+
+2. **PIO_SIZE_SHORT (0x1)**: Uses `inw/outw`.
+
+3. **PIO_SIZE_INT (0x2)**: Uses `inl/outl`.
