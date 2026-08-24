@@ -136,6 +136,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
     ReadResult kernel_result = read_kernel_file(volume);
     read_file(volume, L"\\user\\init.elf", read_modules);
+    read_file(volume, L"\\user\\keyboard.elf", read_modules);
     read_file(volume, L"\\user\\test.elf", read_modules);
 
     Print(L"Loading kernel elf file...\n");

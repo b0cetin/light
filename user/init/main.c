@@ -1,35 +1,20 @@
 
 #include "boot_module.h"
+#include "string.h"
 #include <stdio.h>
 #include <syscalls.h>
 #include <stddef.h>
 #include <stdint.h>
 
-void *keyboard_watcher() {
-    sys_print("Keyboard watcher thread active.");
+uint64_t launch_module(BootModule *module) {
+    size_t path_size = strnlen(module->path, BOOT_MODULE_PATH_SIZE);
 
-    sys_interrupt_control(IRQCTL_SET, 1);
+    uint64_t pid;
+    if (sys_create_process((void*) module->address, module->size, module->path, path_size, &pid)
+        != SYS_SUCCESS)
+        pid = UINT64_MAX;
 
-    int64_t status;
-    while (1) {
-        status = sys_interrupt_control(IRQCTL_AWAIT, 1);
-
-        if (status == SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED) break;
-        if (status == SYS_ERR_IRQCTL_AWAIT_CANCELLED) break;
-
-        if (status != SYS_SUCCESS)
-            break;
-
-        uint8_t scancode = sys_port_io_in(0x60, PIO_SIZE_BYTE);
-
-        println("Scancode: %#hhx", scancode);
-    }
-
-    sys_print("Break from while loop!");
-
-    sys_interrupt_control(IRQCTL_UNSET, 1);
-
-    sys_exit_thread((void*) status);
+    return pid;
 }
 
 int main(BootModule *modules) {
@@ -42,14 +27,9 @@ int main(BootModule *modules) {
         println("%i: %s", i, module->path);
     }
 
-    uint64_t thread_id;
-    if (sys_create_thread(keyboard_watcher, NULL, &thread_id) != SYS_SUCCESS) {
-        sys_print("sys_create_thread failed.");
-        return -1;
-    }
+    launch_module(&modules[1]);
 
-    int64_t result;
-    sys_wait_thread(thread_id, (void**) &result);
+    while (1);
 
-    return result;
+    return 0;
 }
