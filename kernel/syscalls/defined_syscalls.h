@@ -6,6 +6,8 @@
 
 #define SYS_SUCCESS 0
 
+typedef uint64_t pid_t;
+
 int64_t sys_print(const char* str);
 int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id);
 void sys_exit(int64_t status);
@@ -39,3 +41,16 @@ typedef enum {
 } PORTIOSize;
 uint32_t sys_port_io_in(uint16_t port, PORTIOSize size);
 void sys_port_io_out(uint16_t port, PORTIOSize size, uint32_t out);
+
+#define SYS_ERR_RPC_PID_NOT_FOUND -2
+#define SYS_ERR_RPC_TOO_MANY_CALLS -3
+#define SYS_ERR_RPC_PID_NOT_CALLER -4
+#define SYS_ERR_RPC_CALLER_DEAD -5
+typedef struct {
+    int64_t error_code;
+    uint64_t result;
+} rpc_result_t;
+rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3);
+int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3);
+int64_t sys_rpc_return(pid_t caller, uint64_t result);
+uint64_t sys_rpc_awaken(uint64_t count);

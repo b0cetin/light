@@ -20,7 +20,7 @@ user:
 	make -C user/libc all
 	make -C user/init all
 	make -C user/keyboard all
-	make -C user/test all
+	make -C user/graphics all
 
 all: bootloader kernel user
 

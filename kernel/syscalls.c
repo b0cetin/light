@@ -47,43 +47,62 @@ void syscalls_set_kernel_stack(void *kernel_stack_top) {
     local_cpu_data.kernel_stack = (uint64_t) kernel_stack_top;
 }
 
-int64_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
+typedef struct {
+    uint64_t rax;
+    uint64_t rdx;
+} syscall_result_t;
+#define SYS_RET(val) ((syscall_result_t){ .rax = (int64_t)(val), .rdx = 0 })
+#define SYS_ZERO SYS_RET(0)
+
+syscall_result_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
                           uint64_t arg3, uint64_t arg4, uint64_t arg5,
                           uint64_t arg6)
 {
     switch (call_number) {
         case 0:
-            return sys_print((char*) arg1);
+            return SYS_RET(sys_print((char*) arg1));
         case 1:
-            return sys_create_thread((void*) arg1, (void *)arg2, (uint64_t*) arg3);
+            return SYS_RET(sys_create_thread((void*) arg1, (void *)arg2, (uint64_t*) arg3));
         case 2:
             sys_exit(arg1);
-            return 0;
+            return SYS_ZERO;
         case 3:
             sys_exit_thread((void *) arg1);
-            return 0;
+            return SYS_ZERO;
         case 4:
-            return sys_wait_thread(arg1, (void **) arg2);
+            return SYS_RET(sys_wait_thread(arg1, (void **) arg2));
         case 5:
             sys_yield();
-            return 0;
+            return SYS_ZERO;
         case 6:
-            return sys_get_thread_id();
+            return SYS_RET(sys_get_thread_id());
         case 7:
-            return sys_get_pid();
+            return SYS_RET(sys_get_pid());
         case 8:
-            return sys_create_process((void*) arg1, arg2,
+            return SYS_RET(sys_create_process((void*) arg1, arg2,
                     (const char*) arg3, arg4,
-                    (uint64_t*) arg5);
+                    (uint64_t*) arg5));
         case 9:
-            return sys_interrupt_control((IRQCTLRequest) arg1, arg2);
+            return SYS_RET(sys_interrupt_control((IRQCTLRequest) arg1, arg2));
         case 10:
-            return sys_port_io_in(arg1, (PORTIOSize) arg2);
+            return SYS_RET(sys_port_io_in(arg1, (PORTIOSize) arg2));
         case 11:
             sys_port_io_out(arg1, (PORTIOSize) arg2, arg3);
-            return 0;
+            return SYS_ZERO;
+        case 12: {
+            rpc_result_t result = sys_rpc_invoke(arg1, arg2, arg3, arg4, arg5, arg6);
+            return (syscall_result_t) { .rax = result.error_code, .rdx = result.result };
+        }
+        case 13:
+            return SYS_RET(sys_rpc_receive((pid_t*) arg1, (uint64_t*) arg2,
+                    (uint64_t*) arg3, (uint64_t*) arg4,
+                    (uint64_t*) arg5, (uint64_t*) arg6));
+        case 14:
+            return SYS_RET(sys_rpc_return(arg1, arg2));
+        case 15:
+            return SYS_RET(sys_rpc_awaken(arg1));
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
-            return -1;
+            return SYS_RET(-1);
     }
 }

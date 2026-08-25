@@ -166,6 +166,30 @@ Process *process_list() {
     return processes;
 }
 
+Process *process_find(uint64_t pid) {
+    // TODO: Naive approach. Use hashtables? This is O(n).
+
+    Process *process = processes;
+    while (process != null) {
+        if (process->pid == pid) return process;
+        process = process->next;
+    }
+
+    return null;
+}
+
+Thread *process_find_thread(Process *process, uint64_t thread_id) {
+    // TODO: Naive approach. Use hashtables? This is O(n).
+
+    Thread *thread = process->threads;
+    while (thread != null) {
+        if (thread->local_id == thread_id) return thread;
+        thread = thread->next;
+    }
+
+    return null;
+}
+
 static void teardown_process_with_switch(Process *process, int64_t status);
 static void teardown_thread(Thread* thread, uint64_t result) {
     vmm_switch_to_kernel_address_space();
@@ -180,7 +204,8 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     thread->user_stack_mapped_base = 0;
     thread->user_stack_size = 0;
 
-    thread->state = THREAD_TERMINATED; // TODO: Free terminated threads and remove this state.
+    process_rpc_receive_cancel(thread);
+    // NOTE: This is here because there is a number in process keeping track of the amount of receivers.
     
     ThreadChainItem *item = thread->unblock_on_termination;
     while (item != null) {
@@ -192,25 +217,38 @@ static void teardown_thread(Thread* thread, uint64_t result) {
         item = next;
     }
 
-    thread->owner->thread_count--;
+    Process *owning_process = thread->owner;
+
+    owning_process->thread_count--;
 
     kprintln("PROC: Thread %ld of process %ld exited with result %ld.",
-        thread->local_id, thread->owner->pid, result);
+        thread->local_id, owning_process->pid, result);
+
+    Thread *prev = null;
+    for (Thread *i = owning_process->threads; i != null; i = i->next)
+    {
+        if (i == thread) break;
+        prev = i;
+    }
+
+    if (prev != null) prev->next = thread->next;
+    else owning_process->threads = null;
     
-    for (Thread *t = thread->owner->threads; t != null; t = t->next)
-        if (t->state != THREAD_TERMINATED) return;
+    kfree(thread);
+    
+    if (owning_process->thread_count > 0) return;
     
     // There are no threads remaining.
 
-    kprintln("PROC: Process %ld no longer has any threads running.", thread->owner->pid);
+    kprintln("PROC: Process %ld no longer has any threads running.", owning_process->pid);
 
-    teardown_process_with_switch(thread->owner, result);
+    teardown_process_with_switch(owning_process, result);
 }
 
 static void teardown_thread_with_switch(Thread* thread, uint64_t result) {
     teardown_thread(thread, result);
 
-    ctx_switching_switch_next_immediate();
+    ctx_switching_switch_next_destructive();
 }
 
 static void teardown_process_with_switch(Process *process, int64_t status) {
@@ -223,8 +261,7 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
     process->state = PROCESS_TERMINATING;
 
     for (Thread *thread = process->threads; thread != null; thread = thread->next) {
-        if (thread->state != THREAD_TERMINATED)
-            teardown_thread(thread, -1);
+        teardown_thread(thread, -1);
     }
 
     user_irq_force_unreserve_all(process);
@@ -249,18 +286,12 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
 
     if (pid == PROCESS_INIT_PID || pid == PROCESS_IDLE_PID) PANIC("Protected process %ld has been terminated!", pid);
 
-    ctx_switching_switch_next_immediate();
+    ctx_switching_switch_next_destructive();
 }
 
 extern void processes_exit_trampoline(void *function, uint64_t arg1, uint64_t arg2);
 
 bool process_begin_thread_teardown(Thread* thread, uint64_t result) {
-    if (thread->state == THREAD_TERMINATED)
-    {
-        kprintln("PROC: Process %ld tried to terminate thread %ld but it was already terminated.", thread->owner->pid, thread->local_id);
-        return false;
-    }
-
     processes_exit_trampoline(teardown_thread_with_switch, (uint64_t) thread, result);
     return true;
 }
@@ -338,4 +369,81 @@ bool process_block_thread_for_another(Thread *thread, Thread *other) {
     }
 
     return true;
+}
+
+// RPCs
+
+// Returns false if the thread is already blocked.
+// Heed warning for process_block_thread.
+bool process_rpc_begin_receive(Thread *receiver) {
+    if (receiver->state == THREAD_BLOCKED) return false;
+
+    receiver->owner->threads_receiving_rpcs_count++;
+    process_block_thread(receiver, THREADBLOCK_RPC_RECEIVE, (ThreadBlockTarget) {0});
+
+    kprintln("Thread %ld of process %ld is now receiving RPCs. That's %ld so far.",
+        receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
+
+    return true;
+}
+
+// Heed warning for process_block_thread.
+ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
+    Process *caller_p = process_find(rpc->caller_pid);
+    if (caller_p == null) PANIC("process_rpc_invoke called with invalid caller PID.");
+    Thread *caller_t = process_find_thread(caller_p, rpc->caller_thread_id);
+    if (caller_t == null) PANIC("process_rpc_invoke called with invalid caller thread local id.");
+
+    Process *callee_p = process_find(rpc->callee_pid);
+    if (callee_p == null) PANIC("process_rpc_invoke called with invalid callee PID.");
+
+    if (callee_p->threads_receiving_rpcs_count <= 0) return false;
+
+    for (Thread *thread = caller_p->threads; thread != null; thread = thread->next) {
+        if (thread->state == THREAD_BLOCKED &&
+            thread->block_reason == THREADBLOCK_RPC_WAIT_REPLY &&
+            thread->block_target.rpc_callee_pid == rpc->callee_pid)
+            return RPC_INVOKE_DUPLICATE;
+    }
+
+    for (Thread *i = callee_p->threads; i != null; i = i->next) {
+        if (i->state == THREAD_BLOCKED && i->block_reason == THREADBLOCK_RPC_RECEIVE) {
+            Thread *receiver = i;
+
+            process_unblock_thread(receiver, (uint64_t) rpc);
+            callee_p->threads_receiving_rpcs_count--;
+
+            process_block_thread(caller_t, THREADBLOCK_RPC_WAIT_REPLY, (ThreadBlockTarget){ .rpc_callee_pid = rpc->callee_pid });
+            return RPC_INVOKE_SUCCESS;
+        }
+    }
+
+    return RPC_INVOKE_CALLEE_NOT_RECEIVING;
+}
+
+// Returns false when no thread was found from caller that was waiting for reply from the callee process.
+bool process_rpc_reply(Process *callee, Process *caller, uint64_t result) {
+    for (Thread *i = caller->threads; i != null; i = i->next) {
+        if (i->state == THREAD_BLOCKED &&
+            i->block_reason == THREADBLOCK_RPC_WAIT_REPLY &&
+            i->block_target.rpc_callee_pid == callee->pid) {
+            Thread *caller = i;
+
+            process_unblock_thread(caller, result);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Returns false if the thread is not receiving RPCs.
+bool process_rpc_receive_cancel(Thread *receiver) {
+    if (receiver->state == THREAD_BLOCKED &&
+        receiver->block_reason == THREADBLOCK_RPC_RECEIVE) {
+        process_unblock_thread(receiver, RPC_RECEIVE_CANCELLED);
+        return true;
+    }
+
+    return false;
 }

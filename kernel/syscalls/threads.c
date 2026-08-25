@@ -58,9 +58,6 @@ int64_t sys_wait_thread(uint64_t id, void **out_result) {
         return -1;
     }
 
-    if (target->state == THREAD_TERMINATED)
-        PANIC("sys_wait_thread called on THREAD_TERMINATED, this is undefined behavior.");
-
     bool is_blocked = process_block_thread_for_another(thread, target);
     if (!is_blocked) return -1;
 

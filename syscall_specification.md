@@ -2,6 +2,10 @@
 
 > Even if the return value is annotated as `void`, the syscall will always return a 64-bit integer.
 
+## Types
+
+* **pid_t**: type-alias `uint64_t`
+
 ## 0: int64_t sys_print(const char\* str)
 Prints a string to the kernel debug log.
 
@@ -25,10 +29,10 @@ Pauses thread execution to yield control to another thread within or out the cur
 ## 6: uint64_t sys_get_thread_id()
 Returns the local thread id of the thread invoking the call.
 
-## 7: uint64_t sys_get_pid()
+## 7: pid_t sys_get_pid()
 Returns the process id of the thread invoking the call.
 
-## 8: int64_t sys_create_process(void \*content, size_t content_len, const char\* name, size_t name_len, uint64_t *out_pid)
+## 8: int64_t sys_create_process(void \*content, size_t content_len, const char\* name, size_t name_len, pid_t *out_pid)
 Only reserved for the init process. Loads ELF executable from given memory and gives it the name provided. Returns negative values for errors and 0 for success. If success, the newly created process' pid is written to the `out_pid` parameter. If any of the pointers/ranges given (`content`, `name`, `out_pid`) are invalid, the function will return -1 with no changes.
 
 ## 9: int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector)
@@ -81,3 +85,46 @@ Writes out the value at the given `size` to the `port`. If `size` is not **PIO_S
 2. **PIO_SIZE_SHORT (0x1)**: Uses `inw/outw`.
 
 3. **PIO_SIZE_INT (0x2)**: Uses `inl/outl`.
+
+## 12: rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
+Tries to call the target process' RPC handler with given arguments immediately. This pauses thread execution until a reply is given. This call will only work if the target process is actively receiving RPCs. If the call is successful (the syscall returns **SYS_SUCCESS**), the result of the RPC will be written back to the address at `out_result`. (If the pointers are invalid, the syscall will fail with -1.)
+
+> Developer's Note: More info about how the call failed is not provided to the caller for security - as this may expose the state of the target process.
+
+> Developer's FIXME: While this syscall was designed for *fastpath*, in the actual implementation, this is not yet the case. Only *slowpath* is implemented.
+
+### struct rpc_result_t
+
+```c
+struct rpc_result_t {
+    int64_t error_code;
+    uint64_t result;
+}
+```
+
+### Error Codes
+
+1. **Generic (-1)**: Unspecified error.
+
+2. **SYS_ERR_RPC_PID_NOT_FOUND (-2)**: The target process cannot be resolved from the provided pid.
+
+3. **SYS_ERR_RPC_TOO_MANY_CALLS (-3)**: The process tried to make a second call to the target process before the target process replied to the previous call.
+
+## 13: int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3)
+Returns -1 if the given pointers are invalid. Pauses thread execution until a **sys_rpc_invoke** is called for this process. The thread cannot be resumed for any other reason. Can be called by multiple threads, and only one will receive the RPC in a *oldest created thread to newest created thread* fashion.
+
+## 14: int64_t sys_rpc_return(pid_t caller, uint64_t result)
+Execution immediately returns back to the calling thread (which therefore pauses the execution of the calling thread), with the given result being passed to it. Replying to the `sys_rpc_awaken` syscall is no-op and returns **SYS_ERR_RPC_PID_NOT_CALLER**.
+
+### Error Codes
+
+1. **Generic (-1)**: Unspecified error.
+
+2. **SYS_ERR_RPC_PID_NOT_CALLER (-4)**: The process tried to reply to a process that didn't make an RPC to it.
+
+3. **SYS_ERR_RPC_CALLER_DEAD (-5)**: The process replied to a call from a process that no longer exists. This isn't necessarily an error on the responder's part.
+
+## 15: uint64_t sys_rpc_awaken(uint64_t count)
+Resumes `count` number of threads waiting with `sys_rpc_receive`. The call number passed into the receive call is `UINT64_MAX`, with args being `0` and `out_caller` being the current process. `count` argument is not limited in any way. The syscall returns the amount of receive calls successfully awakened. `sys_rpc_return` for this syscall will return **SYS_ERR_RPC_PID_NOT_CALLER**.
+
+> Developer's FIXME: Why does it return `SYS_ERR_RPC_PID_NOT_CALLER`? Isn't `SYS_SUCCESS` preferred?

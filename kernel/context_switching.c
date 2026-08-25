@@ -48,25 +48,11 @@ static Thread *pick_next_thread() {
     return idle_thread;
 }
 
-uint64_t isr_context_switch(uint64_t rsp) {
-    static uint64_t count = 0;
-
-    if (count++ >= 64) {
-        kprintln("CTX: Switched 64 times.");
-        count = 0;
-    }
-
-    if (active_thread != null) {
-        active_thread->kernel_rsp = rsp;
-
-        if (active_thread->state == THREAD_RUNNING)
-            active_thread->state = THREAD_READY;
-    }
+static uint64_t switch_core(Thread *next) {
+    if (next == null) PANIC("No thread available to switch to.");
     
-    active_thread = pick_next_thread();
+    active_thread = next;
 
-    if (active_thread == null) PANIC("No thread available to switch to.");
-    
     void *kernel_stack_top = active_thread->kernel_stack_base + active_thread->kernel_stack_size;
     tss_set_rsp0(kernel_stack_top);
     syscalls_set_kernel_stack(kernel_stack_top);
@@ -81,25 +67,31 @@ uint64_t isr_context_switch(uint64_t rsp) {
     return active_thread->kernel_rsp;
 }
 
+uint64_t isr_context_switch(uint64_t rsp) {
+    static uint64_t count = 0;
+
+    if (count++ >= 64) {
+        kprintln("CTX: Switched 64 times.");
+        count = 0;
+    }
+
+    if (active_thread != null) {
+        active_thread->kernel_rsp = rsp;
+
+        if (active_thread->state == THREAD_RUNNING)
+            active_thread->state = THREAD_READY;
+    }
+
+    return switch_core(pick_next_thread());
+}
+
 extern void switch_to_context_immediately(uint64_t rsp);
 // Switches to the next thread in queue without touching the previous.
-void ctx_switching_switch_next_immediate()
+void ctx_switching_switch_next_destructive()
 {
-    kprintln("CTX: Switching immediately!");
+    kprintln("CTX: Switching destructively!");
 
-    active_thread = pick_next_thread();
-
-    if (active_thread == null) PANIC("No thread available to switch to.");
-    
-    void *kernel_stack_top = active_thread->kernel_stack_base + active_thread->kernel_stack_size;
-    tss_set_rsp0(kernel_stack_top);
-    syscalls_set_kernel_stack(kernel_stack_top);
-
-    vmm_switch_to_user_address_space(active_thread->owner->user_cr3);
-
-    active_thread->state = THREAD_RUNNING;
-
-    switch_to_context_immediately(active_thread->kernel_rsp);
+    switch_to_context_immediately(switch_core(pick_next_thread()));
 }
 
 void ctx_switching_init(Thread *_idle_thread) {
