@@ -28,15 +28,15 @@ int64_t sys_create_process(void *content, size_t content_len, const char* name, 
         return -1;
     }
 
-    if (!is_valid_user_range((uintptr_t) content, content_len)) {
+    if (!is_valid_mapped_user_range((uintptr_t) content, content_len)) {
         kprintln("SYSCALLS: sys_create_process: User-supplied content range is not valid.");
         return -1;
     }
-    if (!is_valid_user_range((uintptr_t) name, name_len)) {
+    if (!is_valid_mapped_user_range((uintptr_t) name, name_len)) {
         kprintln("SYSCALLS: sys_create_process: User-supplied name range is not valid. Size: %ld, address: %lx", name_len, (uint64_t) name);
         return -1;
     }
-    if (!is_valid_user_range((uintptr_t) out_pid, sizeof(uint64_t*))) {
+    if (!is_valid_mapped_user_range((uintptr_t) out_pid, sizeof(uint64_t*))) {
         kprintln("SYSCALLS: sys_create_process: User-supplied out_pid parameter is not valid.");
         return -1;
     }

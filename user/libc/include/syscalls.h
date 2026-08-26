@@ -249,3 +249,21 @@ static inline uint64_t sys_rpc_awaken(uint64_t count) {
 
     return ret;
 }
+
+
+#define SYS_ERR_MAP_MMIO_INVALID_RANGE -2
+#define SYS_ERR_MAP_MMIO_USED -3
+#define SYS_ERR_MAP_MMIO_ARG_UNALIGNED -4
+#define SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE -5
+static inline int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address) {
+    int64_t ret;
+
+    asm volatile (
+        "syscall\n"
+        : "=a" (ret)
+        : "a" (16), "D" (physical_page_base), "S" (size), "d" (virtual_address)
+        :  "rcx", "r11", "memory"
+    );
+
+    return ret;
+}

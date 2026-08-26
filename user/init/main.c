@@ -1,5 +1,5 @@
 
-#include "boot_module.h"
+#include "init_info.h"
 #include "string.h"
 #include <stdio.h>
 #include <syscalls.h>
@@ -17,18 +17,18 @@ uint64_t launch_module(BootModule *module) {
     return pid;
 }
 
-int main(BootModule *modules) {
+int main(InitInfo *init) {
     sys_print("Init started.");
 
     println("Listing loaded modules now.");
     for (int i = 0; i < BOOT_MODULE_COUNT; i++) {
-        BootModule *module = &modules[i];
+        BootModule *module = &init->modules[i];
         if (!module->is_read) continue;
         println("%i: %s", i, module->path);
     }
 
-    launch_module(&modules[1]); // keyboard
-    launch_module(&modules[2]); // graphics
+    launch_module(&init->modules[1]); // keyboard
+    launch_module(&init->modules[2]); // graphics
 
     // Listen to incoming calls
 
@@ -48,14 +48,20 @@ int main(BootModule *modules) {
         }
 
         switch (call) {
-        case 67:
-            sys_yield();
-            sys_yield();
-            sys_yield();
-            sys_yield();
-            sys_yield();
-            println("Returning result!");
-            println("sys_rpc_return: %ld", sys_rpc_return(pid, 69 + arg0 + arg1 + arg2 + arg3));
+        case 8000000:
+            sys_rpc_return(pid, init->framebuffer.available);
+            break;
+        case 8000001:
+            sys_rpc_return(pid, init->framebuffer.base);
+            break;
+        case 8000002:
+            sys_rpc_return(pid, init->framebuffer.size);
+            break;
+        case 8000003:
+            sys_rpc_return(pid, init->framebuffer.width);
+            break;
+        case 8000004:
+            sys_rpc_return(pid, init->framebuffer.height);
             break;
         default:
             sys_rpc_return(pid, (int64_t) -1);

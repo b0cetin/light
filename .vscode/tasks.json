@@ -21,7 +21,7 @@
             "command": "make debug",
             "isBackground": true,
             "dependsOn": "build",
-            "presentation": { "reveal": "always", "panel": "dedicated" },
+            "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": {
                 "pattern": {
                     "regexp": ".*",

@@ -44,12 +44,12 @@ rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, u
 }
 
 int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3) {
-    if (!is_valid_user_range((uintptr_t) out_caller, sizeof(uintptr_t))) return -1;
-    if (!is_valid_user_range((uintptr_t) out_call_number, sizeof(uintptr_t))) return -1;
-    if (!is_valid_user_range((uintptr_t) out_arg0, sizeof(uintptr_t))) return -1;
-    if (!is_valid_user_range((uintptr_t) out_arg1, sizeof(uintptr_t))) return -1;
-    if (!is_valid_user_range((uintptr_t) out_arg2, sizeof(uintptr_t))) return -1;
-    if (!is_valid_user_range((uintptr_t) out_arg3, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_caller, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_call_number, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_arg0, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_arg1, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_arg2, sizeof(uintptr_t))) return -1;
+    if (!is_valid_mapped_user_range((uintptr_t) out_arg3, sizeof(uintptr_t))) return -1;
 
     Thread *thread = ctx_switching_get_active_thread();
     Process *process = thread->owner;

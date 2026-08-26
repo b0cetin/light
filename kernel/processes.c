@@ -413,6 +413,9 @@ ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
             process_unblock_thread(receiver, (uint64_t) rpc);
             callee_p->threads_receiving_rpcs_count--;
 
+            kprintln("Thread %ld of process %ld has received an RPC. %ld receiving threads left.",
+                receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
+
             process_block_thread(caller_t, THREADBLOCK_RPC_WAIT_REPLY, (ThreadBlockTarget){ .rpc_callee_pid = rpc->callee_pid });
             return RPC_INVOKE_SUCCESS;
         }
@@ -442,6 +445,9 @@ bool process_rpc_receive_cancel(Thread *receiver) {
     if (receiver->state == THREAD_BLOCKED &&
         receiver->block_reason == THREADBLOCK_RPC_RECEIVE) {
         process_unblock_thread(receiver, RPC_RECEIVE_CANCELLED);
+
+        kprintln("Thread %ld of process %ld has stopped receiving RPCs. %ld receiving threads left.",
+            receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
         return true;
     }
 

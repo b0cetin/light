@@ -6,12 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-bool is_valid_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the actual range
-    uintptr_t end;
-
-    if (__builtin_add_overflow(ptr, size, &end)) {
-        return false;
-    }
+bool is_valid_mapped_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the actual range
+    if (!is_valid_mappable_user_range(ptr, size)) return false;
 
     uint64_t flags, phys;
     
@@ -20,4 +16,17 @@ bool is_valid_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the ac
 
     uint64_t mask = PT_PRESENT | PT_USER;// | PT_RW | PT_NX;
     return (flags & mask) == mask; 
+}
+
+bool is_valid_mappable_user_range(uintptr_t ptr, size_t size) {
+    if (ptr <= 1024 * 1024) return false; // First MiB
+
+    uintptr_t end;
+    if (__builtin_add_overflow(ptr, size, &end)) {
+        return false;
+    }
+
+    if (end >= HHDM_OFFSET) return false;
+
+    return true;
 }

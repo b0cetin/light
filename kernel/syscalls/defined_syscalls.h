@@ -54,3 +54,9 @@ rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, u
 int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3);
 int64_t sys_rpc_return(pid_t caller, uint64_t result);
 uint64_t sys_rpc_awaken(uint64_t count);
+
+#define SYS_ERR_MAP_MMIO_INVALID_RANGE -2
+#define SYS_ERR_MAP_MMIO_USED -3
+#define SYS_ERR_MAP_MMIO_ARG_UNALIGNED -4
+#define SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE -5
+int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address);

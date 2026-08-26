@@ -101,6 +101,8 @@ syscall_result_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t a
             return SYS_RET(sys_rpc_return(arg1, arg2));
         case 15:
             return SYS_RET(sys_rpc_awaken(arg1));
+        case 16:
+            return SYS_RET(sys_map_mmio(arg1, arg2, (uintptr_t*) arg3));
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return SYS_RET(-1);

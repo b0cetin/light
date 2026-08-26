@@ -128,3 +128,18 @@ Execution immediately returns back to the calling thread (which therefore pauses
 Resumes `count` number of threads waiting with `sys_rpc_receive`. The call number passed into the receive call is `UINT64_MAX`, with args being `0` and `out_caller` being the current process. `count` argument is not limited in any way. The syscall returns the amount of receive calls successfully awakened. `sys_rpc_return` for this syscall will return **SYS_ERR_RPC_PID_NOT_CALLER**.
 
 > Developer's FIXME: Why does it return `SYS_ERR_RPC_PID_NOT_CALLER`? Isn't `SYS_SUCCESS` preferred?
+
+## 16: int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address)
+Tries to map the continuous physical memory to the given virtual address in a continuous way. If the data at `virtual_address` is `0`, then the kernel will pick an unused location and write out the selected location to the address specified by the pointer. If `virtual_address` points to an invalid region of memory and is not `0`, then the call with return -1 immediately. All arguments must be aligned to the system's page size (which is *4 KiB*.) The mapping will be declared in a way that skips the processor cache.
+
+### Error Codes
+
+1. **Generic (-1)**: Unspecified error.
+
+2. **SYS_ERR_MAP_MMIO_INVALID_RANGE (-2)**: The range given with `physical_page_base` and `size` was invalid.
+
+3. **SYS_ERR_MAP_MMIO_USED (-3)**: The provided range (`virtual_address` and `size`) is fully/partially already mapped into the calling process.
+
+4. **SYS_ERR_MAP_MMIO_ARG_UNALIGNED (-4)**: One or more arguments weren't aligned to the system's page size.
+
+5. **SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the desired size into the calling process' address space cannot be found. This error can only be encountered when `virtual_address` is `0`.

@@ -2,40 +2,53 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include <syscalls.h>
 
-bool is_invoking;
+uint64_t get_from_init(uint64_t request_code) {
+    rpc_result_t rpc_result = sys_rpc_invoke(0, request_code, 0, 0, 0, 0);;
 
-void terminate_while_invoking() {
-    while (true) {
-        if (is_invoking) {
-            println("Terminating while invoking!");
-            sys_exit(0);
+    if (rpc_result.error_code != SYS_SUCCESS) {
+        println("get_from_init: RPC (%lu) failed with error code: %li", request_code, rpc_result.error_code);
+        sys_exit(-1);
+    }
+
+    return rpc_result.result;
+}
+
+void fade_to_black(uint8_t *restrict buffer, size_t size) { // Software emulated fade.
+    for (uint8_t i = 0; i < UINT8_MAX; i++) {
+        for (size_t j = 0; j < size; j++) {
+            buffer[j] -= (buffer[j] > 0);
         }
-
-        sys_yield();
     }
 }
 
 int main() {
-    sys_yield();
-    sys_yield();
-    sys_yield();
+    if (get_from_init(8000000)) {
+        uint64_t physical_base = get_from_init(8000001);
+        uint64_t size = get_from_init(8000002);
+        uint64_t width = get_from_init(8000003);
+        uint64_t height = get_from_init(8000004);
 
-    sys_create_thread(terminate_while_invoking, NULL, NULL);
+        void *virtual_base = 0;
 
-    is_invoking = true;
-    rpc_result_t result = sys_rpc_invoke(0, 67, 0, 0, 0, 0);
-    is_invoking = false;
-    
-    if (result.error_code != SYS_SUCCESS) {
-        println("sys_rpc_invoke returned: %ld", result.error_code);
-        return -1;
+        if (sys_map_mmio(physical_base, size, (uintptr_t*) &virtual_base) != SYS_SUCCESS) {
+            println("Mapping UEFI framebuffer failed.");
+            return -1;
+        }
+
+        println("UEFI framebuffer at %lx, size %lu. %lux%lu@X", (uint64_t) virtual_base, size, width, height);
+
+        println("Fading to black...");
+        fade_to_black(virtual_base, size);
+        println("Faded.");
     }
+    else {
+        println("No UEFI framebuffer detected.");
+    } 
 
-    println("RPC result: %ld", result.result);
-
-    while (1);
+    while (true);
 
     return 0;
 }

@@ -207,8 +207,8 @@ bool vmm_get_page_info(PML4 *pml4, uint64_t virt, uint64_t *out_phys, uint64_t *
     uint64_t *pt = get_next_level(pd, pd_idx, false);
     if (pt == 0) return false;
 
-    *out_phys = (pt[pt_idx] & PAGE_4KB_MASK) | (virt & 0xFFF);;
-    *out_flags = pt[pt_idx] & (~PAGE_4KB_MASK);
+    if (out_phys != null) *out_phys = (pt[pt_idx] & PAGE_4KB_MASK) | (virt & 0xFFF);;
+    if (out_flags != null) *out_flags = pt[pt_idx] & (~PAGE_4KB_MASK);
 
     return true;
 }
