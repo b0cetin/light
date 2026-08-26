@@ -8,116 +8,45 @@
 
 typedef uint64_t pid_t;
 
+typedef struct {
+    uint64_t rax, rdx;
+} syscall_result;
+extern syscall_result syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
+
 static inline int64_t sys_print(const char* buf) {
-    int64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (0), "D" (buf)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(0, (uint64_t) buf, 0, 0, 0, 0, 0).rax;
 }
 
 static inline int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id) {
-    uint64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (1), "D" (function), "S" (arg), "d" (out_thread_id)
-        :  "rcx", "r11", "memory"
-    );
-
-    return ret;
+    return syscall(1, (uint64_t) function, (uint64_t) arg, (uint64_t) out_thread_id, 0, 0, 0).rax;
 }
 
 static inline void sys_exit(int64_t status) {
-    asm volatile (
-        "syscall\n"
-        :
-        : "a" (2), "D" (status)
-        :  "rcx", "r11", "rdx", "memory"
-    );
+    syscall(2, status, 0, 0, 0, 0, 0);
 }
 
 static inline void sys_exit_thread(void *result) {
-    asm volatile (
-        "syscall\n"
-        :
-        : "a" (3), "D" (result)
-        :  "rcx", "r11", "rdx", "memory"
-    );
+    syscall(3, (uint64_t) result, 0, 0, 0, 0, 0);
 }
 
 static inline int64_t sys_wait_thread(uint64_t id, void **out_result) {
-    int64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (4), "D" (id), "S" (out_result)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(4, id, (uint64_t) out_result, 0, 0, 0, 0).rax;
 }
 
 static inline void sys_yield() {
-    asm volatile (
-        "syscall\n"
-        :
-        : "a" (5)
-        :  "rcx", "r11", "rdx", "memory"
-    );
+    syscall(5, 0, 0, 0, 0, 0, 0);
 }
 
 static inline uint64_t sys_get_thread_id() {
-    uint64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (6)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(6, 0, 0, 0, 0, 0, 0).rax;
 }
 
 static inline uint64_t sys_get_pid() {
-    uint64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (7)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(7, 0, 0, 0, 0, 0, 0).rax;
 }
 
 static inline int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t* out_pid) {
-    int64_t ret;
-
-    register long r_num asm("rax") = 8;
-    register long r_a1  asm("rdi") = (uint64_t) content;
-    register long r_a2  asm("rsi") = (uint64_t) content_len;
-    register long r_a3  asm("rdx") = (uint64_t) name;
-    register long r_a4  asm("r10") = (uint64_t) name_len; // Note: Kernel uses r10, NOT rcx
-    register long r_a5  asm("r8")  = (uint64_t) out_pid;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "r" (r_num), "r" (r_a1), "r" (r_a2), "r" (r_a3), "r" (r_a4), "r" (r_a4), "r" (r_a5)
-        : "rcx", "r11", "memory"
-    );
-
-    return ret;
+    return syscall(8, (uint64_t) content, (uint64_t) content_len, (uint64_t) name, (uint64_t) name_len, (uint64_t) out_pid, 0).rax;
 }
 
 #define SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED -2
@@ -135,16 +64,7 @@ typedef enum {
     IRQCTL_UNSET  = 0x3,
 } IRQCTLRequest;
 static inline int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector) {
-    int64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (9), "D" (request), "S" (vector)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(9, request, vector, 0, 0, 0, 0).rax;
 }
 
 typedef enum {
@@ -153,24 +73,10 @@ typedef enum {
     PIO_SIZE_INT   = 0x2,
 } PORTIOSize;
 static inline uint32_t sys_port_io_in(uint16_t port, PORTIOSize size) {
-    uint32_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (10), "D" (port), "S" (size)
-        :  "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(10, port, size, 0, 0, 0, 0).rax;
 }
 static inline void sys_port_io_out(uint16_t port, PORTIOSize size, uint32_t out) {
-    asm volatile (
-        "syscall\n"
-        :
-        : "a" (11), "D" (port), "S" (size), "d" (out)
-        :  "rcx", "r11", "memory"
-    );
+    syscall(11, port, size, out, 0, 0, 0);
 }
 
 typedef struct {
@@ -178,76 +84,20 @@ typedef struct {
     uint64_t result;
 } rpc_result_t;
 static inline rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
-    int64_t rax;
-    int64_t rdx;
+    // NOTE: Perhaps use own method to not use the stack?
 
-    register long r_num asm("rax") = 12;
-    register long r_a1  asm("rdi") = (uint64_t) target;
-    register long r_a2  asm("rsi") = (uint64_t) call_number;
-    register long r_a3  asm("rdx") = (uint64_t) arg0;
-    register long r_a4  asm("r10") = (uint64_t) arg1;
-    register long r_a5  asm("r8")  = (uint64_t) arg2;
-    register long r_a6  asm("r9")  = (uint64_t) arg3;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (rax), "=d" (rdx)
-        : "r" (r_num), "r" (r_a1), "r" (r_a2), "r" (r_a3), "r" (r_a4), "r" (r_a4), "r" (r_a5), "r" (r_a6)
-        : "rcx", "r11", "memory"
-    );
-
-    return (rpc_result_t) { .error_code = rax, .result = rdx };
+    syscall_result ret = syscall(12, (uint64_t) target, (uint64_t) call_number, (uint64_t) arg0, (uint64_t) arg1, (uint64_t) arg2, (uint64_t) arg3);
+    return (rpc_result_t) { .error_code = ret.rax, .result = ret.rdx };
 }
 static inline int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3) {
-    int64_t ret;
-
-    register long r_num asm("rax") = 13;
-    register long r_a1  asm("rdi") = (uint64_t) out_caller;
-    register long r_a2  asm("rsi") = (uint64_t) out_call_number;
-    register long r_a3  asm("rdx") = (uint64_t) out_arg0;
-    register long r_a4  asm("r10") = (uint64_t) out_arg1;
-    register long r_a5  asm("r8")  = (uint64_t) out_arg2;
-    register long r_a6  asm("r9")  = (uint64_t) out_arg3;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "r" (r_num), "r" (r_a1), "r" (r_a2), "r" (r_a3), "r" (r_a4), "r" (r_a4), "r" (r_a5), "r" (r_a6)
-        : "rcx", "r11", "memory"
-    );
-
-    return ret;
+    return syscall(13, (uint64_t) out_caller, (uint64_t) out_call_number,
+                   (uint64_t) out_arg0, (uint64_t) out_arg1, (uint64_t) out_arg2, (uint64_t) out_arg3).rax;
 }
 static inline int64_t sys_rpc_return(pid_t caller, uint64_t result) {
-    int64_t ret;
-
-    register long r_num asm("rax") = 14;
-    register long r_a1  asm("rdi") = (uint64_t) caller;
-    register long r_a2  asm("rsi") = (uint64_t) result;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "r" (r_num), "r" (r_a1), "r" (r_a2)
-        : "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(14, (uint64_t) caller, (uint64_t) result, 0, 0, 0, 0).rax;
 }
 static inline uint64_t sys_rpc_awaken(uint64_t count) {
-    uint64_t ret;
-
-    register long r_num asm("rax") = 15;
-    register long r_a1  asm("rdi") = (uint64_t) count;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "r" (r_num), "r" (r_a1)
-        : "rcx", "r11", "rdx", "memory"
-    );
-
-    return ret;
+    return syscall(15, count, 0, 0, 0, 0, 0).rax;
 }
 
 
@@ -256,14 +106,5 @@ static inline uint64_t sys_rpc_awaken(uint64_t count) {
 #define SYS_ERR_MAP_MMIO_ARG_UNALIGNED -4
 #define SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE -5
 static inline int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address) {
-    int64_t ret;
-
-    asm volatile (
-        "syscall\n"
-        : "=a" (ret)
-        : "a" (16), "D" (physical_page_base), "S" (size), "d" (virtual_address)
-        :  "rcx", "r11", "memory"
-    );
-
-    return ret;
+    return syscall(16, physical_page_base, size, (uint64_t) virtual_address, 0, 0, 0).rax;
 }

@@ -25,28 +25,56 @@ void fade_to_black(uint8_t *restrict buffer, size_t size) { // Software emulated
 }
 
 int main() {
-    if (get_from_init(8000000)) {
-        uint64_t physical_base = get_from_init(8000001);
-        uint64_t size = get_from_init(8000002);
-        uint64_t width = get_from_init(8000003);
-        uint64_t height = get_from_init(8000004);
+    println("GFX: Waiting for framebuffer information from init process...");
 
-        void *virtual_base = 0;
+    uint8_t *buffer = NULL;
+    uint64_t size, width, height;
 
-        if (sys_map_mmio(physical_base, size, (uintptr_t*) &virtual_base) != SYS_SUCCESS) {
-            println("Mapping UEFI framebuffer failed.");
+    while (1) {
+        pid_t pid;
+        uint64_t call, arg0, arg1, arg2, arg3;
+
+        if (sys_rpc_receive(&pid, &call, &arg0, &arg1, &arg2, &arg3) != SYS_SUCCESS)
             return -1;
+
+        if (pid != 0) {
+            sys_rpc_return(pid, (int64_t) -1);
+            continue;
         }
 
-        println("UEFI framebuffer at %lx, size %lu. %lux%lu@X", (uint64_t) virtual_base, size, width, height);
+        switch (call) {
+        case 0: {
+            uint64_t physical_base = arg0;
+            size = arg1;
+            width = arg2;
+            height = arg3;
 
+            buffer = 0;
+
+            if (sys_map_mmio(physical_base, size, (uintptr_t*) &buffer) != SYS_SUCCESS) {
+                println("Mapping UEFI framebuffer failed.");
+                return -1;
+            }
+
+            println("UEFI framebuffer at %lx, size %lu. %lux%lu@X", (uint64_t) buffer, size, width, height);
+            goto init;
+        }
+        case 1:
+            println("No UEFI framebuffer available.");
+            goto init;
+        default:
+            sys_rpc_return(pid, (int64_t) -1);
+            break;
+        }
+    }
+
+    init:
+
+    if (buffer != NULL) {
         println("Fading to black...");
-        fade_to_black(virtual_base, size);
+        fade_to_black(buffer, size);
         println("Faded.");
     }
-    else {
-        println("No UEFI framebuffer detected.");
-    } 
 
     while (true);
 

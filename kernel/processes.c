@@ -397,7 +397,7 @@ ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
     Process *callee_p = process_find(rpc->callee_pid);
     if (callee_p == null) PANIC("process_rpc_invoke called with invalid callee PID.");
 
-    if (callee_p->threads_receiving_rpcs_count <= 0) return false;
+    if (callee_p->threads_receiving_rpcs_count <= 0) return RPC_INVOKE_CALLEE_NOT_RECEIVING;
 
     for (Thread *thread = caller_p->threads; thread != null; thread = thread->next) {
         if (thread->state == THREAD_BLOCKED &&

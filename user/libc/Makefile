@@ -14,7 +14,7 @@ TMP := /tmp/user-build/$(EXEC_NAME)
 OUT := ../../dist/user
 
 C_SRCS := $(wildcard *.c)
-OBJS   := $(C_SRCS:%.c=$(TMP)/%.o) $(TMP)/crt0.o
+OBJS   := $(C_SRCS:%.c=$(TMP)/%.o) $(TMP)/crt0.o $(TMP)/syscall.o
 
 # Flags
 

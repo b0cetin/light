@@ -28,7 +28,39 @@ int main(InitInfo *init) {
     }
 
     launch_module(&init->modules[1]); // keyboard
-    launch_module(&init->modules[2]); // graphics
+    uint64_t gfx_pid = launch_module(&init->modules[2]); // graphics
+
+    sys_yield();
+
+    // Initialize modules
+    
+    {
+        rpc_result_t rpc;
+        
+        for (int i = 0; i < 3; i++) {
+            if (init->framebuffer.available) {
+                rpc = sys_rpc_invoke(gfx_pid, 0, init->framebuffer.base,
+                                     init->framebuffer.size, init->framebuffer.width, init->framebuffer.height);
+            }
+            else {
+                rpc = sys_rpc_invoke(gfx_pid, 1, 0, 0, 0, 0);
+            }
+
+            if (rpc.error_code != SYS_SUCCESS) {
+                println("Sending framebuffer data to the graphics server failed. Retrying...");
+                sys_yield();
+            }
+            else {
+                println("Sent framebuffer data to the graphics server.");
+                break;
+            }
+        }
+
+        if (rpc.error_code != SYS_SUCCESS) {
+            println("Could not framebuffer data to the graphics server.");
+            return -1;
+        }
+    }
 
     // Listen to incoming calls
 
@@ -48,21 +80,6 @@ int main(InitInfo *init) {
         }
 
         switch (call) {
-        case 8000000:
-            sys_rpc_return(pid, init->framebuffer.available);
-            break;
-        case 8000001:
-            sys_rpc_return(pid, init->framebuffer.base);
-            break;
-        case 8000002:
-            sys_rpc_return(pid, init->framebuffer.size);
-            break;
-        case 8000003:
-            sys_rpc_return(pid, init->framebuffer.width);
-            break;
-        case 8000004:
-            sys_rpc_return(pid, init->framebuffer.height);
-            break;
         default:
             sys_rpc_return(pid, (int64_t) -1);
             break;

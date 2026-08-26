@@ -1,8 +1,7 @@
 
 #include "context_switching.h"
 #include "defined_syscalls.h"
-#include "../debugging.h"
-#include "../user_interrupts.h"
+#include "user_interrupts.h"
 #include "processes.h"
 
 int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector) {

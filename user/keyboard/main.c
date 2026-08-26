@@ -7,11 +7,21 @@
 int main() {
     println("Keyboard driver started.");
 
-    sys_interrupt_control(IRQCTL_SET, 1);
+    int64_t status = 0;
+
+    status = sys_interrupt_control(IRQCTL_SET, 1);
+
+    if (status != SYS_SUCCESS) {
+        println("IRQCTL_SET returned %li!", status);
+        return -1;
+    }
 
     while (1) {
-        if (sys_interrupt_control(IRQCTL_AWAIT, 1) != SYS_SUCCESS)
+        status = sys_interrupt_control(IRQCTL_AWAIT, 1);
+        if (status != SYS_SUCCESS) {
+            println("IRQCTL_AWAIT returned %li!", status);
             break;
+        }
 
         uint8_t scancode = sys_port_io_in(0x60, PIO_SIZE_BYTE);
         println("Scancode: %#hhx", scancode);
