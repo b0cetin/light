@@ -10,9 +10,11 @@ uint64_t launch_module(BootModule *module) {
     size_t path_size = strnlen(module->path, BOOT_MODULE_PATH_SIZE);
 
     uint64_t pid;
-    if (sys_create_process((void*) module->address, module->size, module->path, path_size, &pid)
-        != SYS_SUCCESS)
-        pid = UINT64_MAX;
+    int64_t error_code = sys_create_process((void*) module->address, module->size, module->path, path_size, &pid);
+    if (error_code != SYS_SUCCESS) {
+        println("Failure launching boot module \"%s\": %li", module->path, error_code);
+        sys_exit(-1);
+    }
 
     return pid;
 }
@@ -39,11 +41,12 @@ int main(InitInfo *init) {
         
         for (int i = 0; i < 3; i++) {
             if (init->framebuffer.available) {
-                rpc = sys_rpc_invoke(gfx_pid, 0, init->framebuffer.base,
-                                     init->framebuffer.size, init->framebuffer.width, init->framebuffer.height);
+                rpc = sys_rpc_invoke(gfx_pid, init->framebuffer.base,
+                                     init->framebuffer.size, init->framebuffer.width, init->framebuffer.height,
+                                     init->framebuffer.pitch);
             }
             else {
-                rpc = sys_rpc_invoke(gfx_pid, 1, 0, 0, 0, 0);
+                rpc = sys_rpc_invoke(gfx_pid, 0, 0, 0, 0, 0);
             }
 
             if (rpc.error_code != SYS_SUCCESS) {

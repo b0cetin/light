@@ -5,17 +5,6 @@
 #include <string.h>
 #include <syscalls.h>
 
-uint64_t get_from_init(uint64_t request_code) {
-    rpc_result_t rpc_result = sys_rpc_invoke(0, request_code, 0, 0, 0, 0);;
-
-    if (rpc_result.error_code != SYS_SUCCESS) {
-        println("get_from_init: RPC (%lu) failed with error code: %li", request_code, rpc_result.error_code);
-        sys_exit(-1);
-    }
-
-    return rpc_result.result;
-}
-
 void fade_to_black(uint8_t *restrict buffer, size_t size) { // Software emulated fade.
     for (uint8_t i = 0; i < UINT8_MAX; i++) {
         for (size_t j = 0; j < size; j++) {
@@ -28,7 +17,7 @@ int main() {
     println("GFX: Waiting for framebuffer information from init process...");
 
     uint8_t *buffer = NULL;
-    uint64_t size, width, height;
+    uint64_t size = 0, width = 0, height = 0, pitch = 0;
 
     while (1) {
         pid_t pid;
@@ -42,12 +31,15 @@ int main() {
             continue;
         }
 
-        switch (call) {
-        case 0: {
-            uint64_t physical_base = arg0;
-            size = arg1;
-            width = arg2;
-            height = arg3;
+        if (call == 0) {
+            println("No UEFI framebuffer available.");
+        }
+        else {
+            uint64_t physical_base = call;
+            size = arg0;
+            width = arg1;
+            height = arg2;
+            pitch = arg3;
 
             buffer = 0;
 
@@ -56,16 +48,11 @@ int main() {
                 return -1;
             }
 
-            println("UEFI framebuffer at %lx, size %lu. %lux%lu@X", (uint64_t) buffer, size, width, height);
-            goto init;
+            println("UEFI framebuffer at %lx, size %lu, pitch: %lu. %lux%lu@X", (uint64_t) buffer, size, pitch, width, height);
         }
-        case 1:
-            println("No UEFI framebuffer available.");
-            goto init;
-        default:
-            sys_rpc_return(pid, (int64_t) -1);
-            break;
-        }
+
+        sys_rpc_return(pid, 0);
+        goto init;
     }
 
     init:
@@ -75,6 +62,8 @@ int main() {
         fade_to_black(buffer, size);
         println("Faded.");
     }
+
+    memset(buffer, 0xFF, size);
 
     while (true);
 

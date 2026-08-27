@@ -1,6 +1,6 @@
 # Syscalls
 
-> Even if the return value is annotated as `void`, the syscall will always return a 64-bit integer.
+As the light kernel is actively being developed, these syscalls may change at any time. Always compile your applications to the newest specification.
 
 ## Types
 
@@ -143,3 +143,49 @@ Tries to map the continuous physical memory to the given virtual address in a co
 4. **SYS_ERR_MAP_MMIO_ARG_UNALIGNED (-4)**: One or more arguments weren't aligned to the system's page size.
 
 5. **SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the desired size into the calling process' address space cannot be found. This error can only be encountered when `virtual_address` is `0`.
+
+## 17: **RESERVED for sys_unmap_mmio or similar.**
+
+## 18: int64_t sys_memory_map(void \*\*address, size_t length, MemoryAccessFlags access)
+Locates enough free pages in memory and maps them to the requested address in a continious way with the requested protection flags. If the value at given `address` is `0`, then the kernel will pick a suitable location in the caller's address space and write this address to the `address` argument. The length (and address if provided) must be aligned to the system's page size. If the argument `address` itself is not a valid mapped address in the caller's address space, the call will return -1 immediately.
+
+### Type-alias MemoryAccessFlags: uint64_t
+A 64-bit bitmask field defining the memory protection info for the mapping.
+
+1. **MMAP_ACCESS_READ (0x1)**: Allows read.
+1. **MMAP_ACCESS_WRITE (0x2)**: Allows write.
+1. **MMAP_ACCESS_EXEC (0x4)**: Allows code execution.
+
+### Error Codes
+
+1. **Generic (-1):** Unspecified error.
+
+2. **SYS_ERR_MMAP_INVALID_RANGE (-2):** The range specified with `address` and `length` is not valid.
+
+3. **SYS_ERR_MMAP_USED (-3):** The provided range (`address` and `size`) is fully/partially already mapped into the calling process.
+
+4. **SYS_ERR_MMAP_ARG_UNALIGNED (-4)**: One or more arguments weren't aligned to the system's page size.
+
+5. **SYS_ERR_MMAP_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the desired size into the calling process' address space cannot be found. This error can only be encountered when the value at `address` is `0`.
+
+5. **SYS_ERR_MMAP_INVALID_ACCESS (-6)**: `access` features unknown/unsupported flags.
+
+5. **SYS_ERR_MMAP_OUT_OF_MEMORY (-7)**: The system doesn't have enough free memory to complete this operation.
+
+## 19: **RESERVED for int64_t sys_memory_unmap(void \*address, size_t length)**
+
+## 20: int64_t sys_memory_share(void \*address, size_t length, SharedMemoryID *out_id)
+Marks the region of memory as shared and outputs the newly shared memory ID. Arguments must be aligned to the system's page size. If `out_id` is invalid, returns -1 immediately. The memory region inputted must be mapped beforehand with `sys_memory_map`. The shared memory will not be destroyed until all processes referencing it are terminated. Performing this syscall back to back with the same range will output the same `SharedMemoryID`.
+
+### Type-alias SharedMemoryID: uint64_t
+A global system identifier for a shared memory region. Not presistent.
+
+### Error Codes
+
+1. **Generic (-1):** Unspecified error.
+
+2. **SYS_ERR_MSHARE_INVALID_RANGE (-2):** The range specified with `address` and `length` is not valid.
+
+3. **SYS_ERR_MSHARE_UNMAPPED (-3):** The range specified with `address` and `length` isn't fully mapped.
+
+4. **SYS_ERR_MSHARE_ARG_UNALIGNED (-4):** One or more arguments weren't aligned to the system's page size.

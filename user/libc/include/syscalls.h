@@ -108,3 +108,17 @@ static inline uint64_t sys_rpc_awaken(uint64_t count) {
 static inline int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address) {
     return syscall(16, physical_page_base, size, (uint64_t) virtual_address, 0, 0, 0).rax;
 }
+
+
+#define SYS_ERR_MMAP_INVALID_RANGE -2
+#define SYS_ERR_MMAP_USED -3
+#define SYS_ERR_MMAP_ARG_UNALIGNED -4
+#define SYS_ERR_MMAP_CANNOT_FIND_SPACE -5
+#define SYS_ERR_MMAP_INVALID_ACCESS -6
+typedef uint64_t MemoryAccessFlags;
+#define MMAP_ACCESS_READ 0x1
+#define MMAP_ACCESS_WRITE 0x2
+#define MMAP_ACCESS_EXEC 0x4
+int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) {
+    return syscall(18, (uint64_t) address, length, access, 0, 0, 0).rax;
+}

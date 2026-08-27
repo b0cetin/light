@@ -300,3 +300,7 @@ uint64_t pmm_get_highest_phys_addr() {
 uint64_t pmm_get_available_memory_size() {
     return total_available_memory;
 }
+
+uint64_t pmm_get_free_page_count() {
+    return free_pages_remaining;
+}

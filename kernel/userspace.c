@@ -24,6 +24,7 @@ typedef struct __attribute((packed)) {
 
     uint32_t width;
     uint32_t height;
+    uint32_t pitch;
 } UEFIFramebuffer;
 
 typedef struct __attribute__((packed)) {
@@ -78,6 +79,7 @@ static uint64_t prepare_init_info(BootInfo *boot_info, PML4* address_space) {
 
             init_info->framebuffer.width = boot_info->framebuffer.HorizontalResolution;
             init_info->framebuffer.height = boot_info->framebuffer.VerticalResolution;
+            init_info->framebuffer.pitch = boot_info->framebuffer.PixelsPerScanLine;
         }
     }
     

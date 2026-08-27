@@ -13,6 +13,7 @@ uint8_t *pmm_get_bitmap();
 uint64_t pmm_get_bitmap_size();
 uint64_t pmm_get_highest_phys_addr();
 uint64_t pmm_get_available_memory_size();
+uint64_t pmm_get_free_page_count();
 
 void pmm_print_stats();
 

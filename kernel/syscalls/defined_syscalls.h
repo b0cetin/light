@@ -60,3 +60,21 @@ uint64_t sys_rpc_awaken(uint64_t count);
 #define SYS_ERR_MAP_MMIO_ARG_UNALIGNED -4
 #define SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE -5
 int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address);
+
+#define SYS_ERR_MMAP_INVALID_RANGE -2
+#define SYS_ERR_MMAP_USED -3
+#define SYS_ERR_MMAP_ARG_UNALIGNED -4
+#define SYS_ERR_MMAP_CANNOT_FIND_SPACE -5
+#define SYS_ERR_MMAP_INVALID_ACCESS -6
+#define SYS_ERR_MMAP_OUT_OF_MEMORY -7
+typedef uint64_t MemoryAccessFlags;
+#define MMAP_ACCESS_READ 0x1
+#define MMAP_ACCESS_WRITE 0x2
+#define MMAP_ACCESS_EXEC 0x4
+int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access);
+
+#define SYS_ERR_MSHARE_INVALID_RANGE -2
+#define SYS_ERR_MSHARE_UNMAPPED -3
+#define SYS_ERR_MSHARE_ARG_UNALIGNED -4
+typedef uint64_t SharedMemoryID;
+int64_t sys_memory_share(void *address, size_t length, SharedMemoryID *out_id);
