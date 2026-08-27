@@ -175,7 +175,9 @@ A 64-bit bitmask field defining the memory protection info for the mapping.
 ## 19: **RESERVED for int64_t sys_memory_unmap(void \*address, size_t length)**
 
 ## 20: int64_t sys_memory_share(void \*address, size_t length, SharedMemoryID *out_id)
-Marks the region of memory as shared and outputs the newly shared memory ID. Arguments must be aligned to the system's page size. If `out_id` is invalid, returns -1 immediately. The memory region inputted must be mapped beforehand with `sys_memory_map`. The shared memory will not be destroyed until all processes referencing it are terminated. Performing this syscall back to back with the same range will output the same `SharedMemoryID`.
+Marks the region of memory as shared and outputs the newly shared memory ID. Arguments must be aligned to the system's page size. If `out_id` is invalid, returns -1 immediately. The memory region inputted must be mapped beforehand with `sys_memory_map`. The shared memory will not be destroyed until all processes referencing it are terminated or have unmapped it. Performing this syscall back to back with the same range will output the same `SharedMemoryID`.
+
+> Developer's FIXME: No. It will not output the same SharedMemoryID. There is no VAS tracking. We need a better system.
 
 ### Type-alias SharedMemoryID: uint64_t
 A global system identifier for a shared memory region. Not presistent.
@@ -189,3 +191,18 @@ A global system identifier for a shared memory region. Not presistent.
 3. **SYS_ERR_MSHARE_UNMAPPED (-3):** The range specified with `address` and `length` isn't fully mapped.
 
 4. **SYS_ERR_MSHARE_ARG_UNALIGNED (-4):** One or more arguments weren't aligned to the system's page size.
+
+## 21: int64_t sys_memory_share_map(SharedMemoryID id, void \*\*address)
+Resolves the shared memory reference and maps it to the given address. If the value at `address` is `0`, then the kernel will pick a suitable location and write it out. If a value is provided, the value at `address` must be aligned to the system page size. Returns the amount of bytes mapped if successful. If `address` is invalid, -1 will be returned immediately.
+
+### Error Codes
+
+1. **Generic (-1):** Unspecified error.
+
+2. **SYS_ERR_MSHARE_INVALID_RANGE (-2):** The address given in `address` (or the range with the implicit size of the shared memory region) is not valid.
+
+3. **SYS_ERR_MSHARE_USED (-3):** The address given in `address` (or the range with the implicit size of the shared memory region) clashes with already mapped memory.
+
+4. **SYS_ERR_MSHARE_ARG_UNALIGNED (-4)**
+
+5. **SYS_ERR_MSHARE_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the shared size into the calling process' address space cannot be found. This error can only be encountered when the value at `address` is `0`.

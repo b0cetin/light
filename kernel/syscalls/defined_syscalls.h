@@ -76,5 +76,8 @@ int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access);
 #define SYS_ERR_MSHARE_INVALID_RANGE -2
 #define SYS_ERR_MSHARE_UNMAPPED -3
 #define SYS_ERR_MSHARE_ARG_UNALIGNED -4
-typedef uint64_t SharedMemoryID;
-int64_t sys_memory_share(void *address, size_t length, SharedMemoryID *out_id);
+typedef uint64_t Sys_SharedMemoryID;
+int64_t sys_memory_share(void *address, size_t length, Sys_SharedMemoryID *out_id);
+#define SYS_ERR_MSHARE_USED -3
+#define SYS_ERR_MSHARE_CANNOT_FIND_SPACE -5
+int64_t sys_memory_share_map(Sys_SharedMemoryID id, void **address);

@@ -4,6 +4,7 @@
 #include "defined_syscalls.h"
 #include "pmm.h"
 #include "processes.h"
+#include "shared_memory.h"
 #include "syscalls/utils.h"
 #include "types.h"
 #include "vmm.h"
@@ -168,8 +169,7 @@ int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) 
     return SYS_SUCCESS;
 }
 
-// FIXME: This SharedMemoryID is increadibly insecure. A capability-like system is desperately needed.
-int64_t sys_memory_share(void *address, size_t length, SharedMemoryID *out_id) {
+int64_t sys_memory_share(void *address, size_t length, Sys_SharedMemoryID *out_id) {
     if (!is_valid_mapped_user_range((uintptr_t) out_id, sizeof(SharedMemoryID*)))
         return -1;
 
@@ -188,5 +188,19 @@ int64_t sys_memory_share(void *address, size_t length, SharedMemoryID *out_id) {
     if (page_count == 0)
         return SYS_ERR_MMAP_INVALID_RANGE;
 
-    PANIC("sys_memory_share not implemented");
+    Process *process = ctx_switching_get_active_thread()->owner;
+    if (process->is_ring_0) return -1;
+
+    SharedMemoryID id = smem_create(process->user_cr3, (uintptr_t) address, page_count);
+    if (id == SMEM_NULL_ID) {
+        kprintln("smem_create returned SMEM_NULL_ID!");
+        return -1;
+    }
+
+    *out_id = id;
+    return SYS_SUCCESS;
+}
+
+int64_t sys_memory_share_map(Sys_SharedMemoryID id, void **address) {
+    PANIC("sys_memory_share_map not implemented.");
 }

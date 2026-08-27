@@ -119,6 +119,19 @@ typedef uint64_t MemoryAccessFlags;
 #define MMAP_ACCESS_READ 0x1
 #define MMAP_ACCESS_WRITE 0x2
 #define MMAP_ACCESS_EXEC 0x4
-int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) {
+static inline int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) {
     return syscall(18, (uint64_t) address, length, access, 0, 0, 0).rax;
+}
+
+#define SYS_ERR_MSHARE_INVALID_RANGE -2
+#define SYS_ERR_MSHARE_UNMAPPED -3
+#define SYS_ERR_MSHARE_ARG_UNALIGNED -4
+typedef uint64_t SharedMemoryID;
+static inline int64_t sys_memory_share(void *address, size_t length, SharedMemoryID *out_id) {
+    return syscall(20, (uint64_t) address, length, (uint64_t) out_id, 0, 0, 0).rax;
+}
+#define SYS_ERR_MSHARE_USED -3
+#define SYS_ERR_MSHARE_CANNOT_FIND_SPACE -5
+static inline int64_t sys_memory_share_map(SharedMemoryID id, void **address) {
+    return syscall(21, id, (uint64_t) address, 0, 0, 0, 0).rax;
 }

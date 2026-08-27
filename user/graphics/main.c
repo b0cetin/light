@@ -1,4 +1,5 @@
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -64,6 +65,15 @@ int main() {
     }
 
     memset(buffer, 0xFF, size);
+
+    println("Testing memory sharing.");
+    println("Mapping first.");
+    void *address = 0;
+    println("Map result: %li", sys_memory_map(&address, 20480, MMAP_ACCESS_READ | MMAP_ACCESS_WRITE));
+    println("Map address: %#lx", (uint64_t) address);
+    SharedMemoryID id = 0;
+    println("Share result: %li", sys_memory_share(address, 20480, &id));
+    println("Share id: %lu", id);
 
     while (true);
 
