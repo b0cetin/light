@@ -215,3 +215,7 @@ void kfree(void *ptr) {
 
     coalesce(header);
 }
+
+void *kcalloc(size_t num, size_t size) {
+    return kmalloc(num * size); // kmalloc already zero-initializes memory.
+}

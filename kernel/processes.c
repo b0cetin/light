@@ -8,11 +8,18 @@
 #include "types.h"
 #include "user_interrupts.h"
 #include "userspace.h"
+#include "utils/hashtables/u64toaddr_hashtable.h"
 #include "vmm.h"
 #include <stdint.h>
 
 Process *processes = null;
 uint64_t next_pid = 0;
+
+Hashtable *pid_to_process;
+
+void process_init() {
+    pid_to_process = ht_create();
+}
 
 static Process *allocate_process() {
     if (processes == null) {
@@ -30,7 +37,7 @@ static Process *allocate_process() {
     return new_process;
 }
 
-static Process *process_create_core(char *name) {
+static Process *process_create_core(char *name, uint64_t pid) {
     Process *new_process = allocate_process();
 
     size_t path_size = strnlen(name, PROCESS_NAME_MAX) + 1;
@@ -38,8 +45,11 @@ static Process *process_create_core(char *name) {
     memcpy(new_path, name, path_size);
 
     new_process->name = new_path;
-    new_process->pid = next_pid++;
+    new_process->pid = pid;
     new_process->state = PROCESS_STARTING;
+
+    if (!ht_add(pid_to_process, new_process->pid, (uintptr_t) new_process))
+        PANIC("Cannot create process %ld (named \"%s\"): PID cannot be added to the table!");
 
     new_process->threads = null;
     new_process->thread_count = 0;
@@ -51,7 +61,7 @@ static Process *process_create_core(char *name) {
 }
 
 Process *process_create(void *entry, PML4 *pml4, char *name) {
-    Process *new_process = process_create_core(name);
+    Process *new_process = process_create_core(name, next_pid++);
 
     new_process->user_cr3 = pml4;
     new_process->is_ring_0 = false;
@@ -67,8 +77,21 @@ Process *process_create(void *entry, PML4 *pml4, char *name) {
 
 // Kernel-space processes should absolutely not call syscalls.
 // There's no reason to perform syscalls. All kernel functionality is available.
-Process *process_create_kernel(void *entry, char *name) {
-    Process *new_process = process_create_core(name);
+// If `pid` argument is NULL, then a PID will be chosen automatically.
+// If not, the requested PID will be used. WARNING: PID CLASHES WILL PANIC
+// THE SYSTEM.
+Process *process_create_kernel(void *entry, char *name, uint64_t *requested_pid) {
+    uint64_t pid;
+
+    if (requested_pid != null) {
+        pid = *requested_pid;
+
+        if (ht_lookup(pid_to_process, pid, null))
+            PANIC("process_create_kernel called with requested pid %ld, but it clashes! (entry: %lx, name: %s)", pid, (uint64_t) entry, name);
+    }
+    else pid = next_pid++;
+
+    Process *new_process = process_create_core(name, pid);
 
     new_process->user_cr3 = null;
     new_process->is_ring_0 = true;
@@ -167,19 +190,16 @@ Process *process_list() {
 }
 
 Process *process_find(uint64_t pid) {
-    // TODO: Naive approach. Use hashtables? This is O(n).
+    Process *process;
+    if (!ht_lookup(pid_to_process, pid, (uintptr_t*) &process))
+        return null;
 
-    Process *process = processes;
-    while (process != null) {
-        if (process->pid == pid) return process;
-        process = process->next;
-    }
-
-    return null;
+    return process;
 }
 
 Thread *process_find_thread(Process *process, uint64_t thread_id) {
-    // TODO: Naive approach. Use hashtables? This is O(n).
+    // NOTE: I am not using Hashtables for threads because I didn't deem it necessary.
+    // If we get to use a lotta threads for one process one day, then maybe I'll reconsider.
 
     Thread *thread = process->threads;
     while (thread != null) {

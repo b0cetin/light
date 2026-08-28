@@ -102,9 +102,9 @@ void idle_thread() {
 }
 
 static Thread *create_idle_thread() {
-    Process *process = process_create_kernel(idle_thread, "system_idle");
+    uint64_t pid = PROCESS_IDLE_PID;
+    Process *process = process_create_kernel(idle_thread, "system_idle", &pid);
 
-    process->pid = PROCESS_IDLE_PID;
     process->prev->next = null;
     process->prev = null;
 

@@ -9,6 +9,7 @@
 #include "msr.h"
 #include "pic.h"
 #include "pmm.h"
+#include "processes.h"
 #include "processor_info.h"
 #include "serial.h"
 #include "syscalls.h"
@@ -58,6 +59,8 @@ void kernel_main(BootInfo *boot_info) {
 
     kprintln("Kernel init ended. Switching to userspace.");
 
+    process_init();
+    
     start_first_user_process(boot_info);
 }
 
