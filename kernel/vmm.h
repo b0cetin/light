@@ -38,5 +38,6 @@ void vmm_destroy_user_address_space(PML4 *plm4);
 
 void vmm_switch_to_user_address_space(PML4 *plm4);
 void vmm_switch_to_kernel_address_space();
+void vmm_switch_to_address_space(PML4 *pml4);
 
 bool vmm_get_page_info(PML4 *plm4, uint64_t virt, uint64_t *out_phys, uint64_t *out_flags);

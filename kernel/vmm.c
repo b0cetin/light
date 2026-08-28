@@ -14,6 +14,12 @@ static inline void load_cr3(uint64_t pml4_addr) {
     asm volatile("mov %0, %%cr3" ::"r"(pml4_addr) : "memory");
 }
 
+static inline uint64_t get_cr3() {
+    uint64_t pml4;
+    asm volatile("mov %%cr3, %%rax" : "=a" (pml4) :: "memory");
+    return pml4;
+}
+
 static inline void invlpg(uint64_t virt) { // Invalidates TLB entries.
     asm volatile("invlpg (%0)" ::"r"(virt) : "memory");
 }
@@ -160,11 +166,21 @@ void vmm_destroy_user_address_space(PML4 *pml4) {
 }
 
 void vmm_switch_to_user_address_space(PML4 *plm4) {
-    load_cr3(v2p(plm4));
+    if (plm4 == kernel_pml4)
+        PANIC("vmm_switch_to_user_address_space called on kernel PML4!");
+
+    vmm_switch_to_address_space(plm4);
 }
 
 void vmm_switch_to_kernel_address_space() {
-    load_cr3(v2p(kernel_pml4));
+    vmm_switch_to_address_space(kernel_pml4);
+}
+
+void vmm_switch_to_address_space(PML4 *pml4) {
+    if (get_cr3() == v2p(pml4))
+        return;
+
+    load_cr3(v2p(pml4));
 }
 
 void vmm_init() {

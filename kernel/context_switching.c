@@ -57,10 +57,8 @@ static uint64_t switch_core(Thread *next) {
     tss_set_rsp0(kernel_stack_top);
     syscalls_set_kernel_stack(kernel_stack_top);
 
-    if (active_thread->owner->is_ring_0)
-        vmm_switch_to_kernel_address_space();
-    else
-        vmm_switch_to_user_address_space(active_thread->owner->user_cr3); // TODO: Optimize for setting to the same space back to back
+    if (active_thread->owner->is_ring_0) vmm_switch_to_kernel_address_space();
+    else vmm_switch_to_user_address_space(active_thread->owner->user_cr3);
 
     active_thread->state = THREAD_RUNNING;
 
