@@ -343,10 +343,6 @@ void process_block_thread(Thread* thread, ThreadBlockReason reason, ThreadBlockT
     thread->block_target = target;
     thread->wake_result = 0;
     thread->state = THREAD_BLOCKED;
-
-    // kprintln("PROC: Thread %ld of process %ld has been blocked with reason %ld.",
-    //     thread->local_id, thread->owner->pid, reason);
-    // Silence frequent log
 }
 
 void process_unblock_thread(Thread *thread, uint64_t result) {
@@ -359,10 +355,6 @@ void process_unblock_thread(Thread *thread, uint64_t result) {
     thread->block_reason = THREADBLOCK_NULL;
     thread->wake_result = result;
     thread->state = THREAD_READY;
-
-    // kprintln("PROC: Thread %ld of process %ld has been unblocked.",
-    //     thread->local_id, thread->owner->pid);
-    // Silence frequent log
 }
 
 bool process_block_thread_for_another(Thread *thread, Thread *other) {
@@ -401,7 +393,7 @@ bool process_rpc_begin_receive(Thread *receiver) {
     receiver->owner->threads_receiving_rpcs_count++;
     process_block_thread(receiver, THREADBLOCK_RPC_RECEIVE, (ThreadBlockTarget) {0});
 
-    kprintln("Thread %ld of process %ld is now receiving RPCs. That's %ld so far.",
+    kprintln("RPC: Thread %ld of process %ld is now receiving RPCs. That's %ld so far.",
         receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
 
     return true;
@@ -433,7 +425,7 @@ ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc, Thread **out_receiver) {
             process_unblock_thread(receiver, (uint64_t) rpc);
             callee_p->threads_receiving_rpcs_count--;
 
-            kprintln("Thread %ld of process %ld has received an RPC. %ld receiving threads left.",
+            kprintln("RPC: Thread %ld of process %ld has received an RPC. %ld receiving threads left.",
                 receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
 
             process_block_thread(caller_t, THREADBLOCK_RPC_WAIT_REPLY, (ThreadBlockTarget){ .rpc_callee_pid = rpc->callee_pid });
@@ -470,7 +462,7 @@ bool process_rpc_receive_cancel(Thread *receiver) {
         receiver->block_reason == THREADBLOCK_RPC_RECEIVE) {
         process_unblock_thread(receiver, RPC_RECEIVE_CANCELLED);
 
-        kprintln("Thread %ld of process %ld has stopped receiving RPCs. %ld receiving threads left.",
+        kprintln("RPC: Thread %ld of process %ld has stopped receiving RPCs. %ld receiving threads left.",
             receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
         return true;
     }

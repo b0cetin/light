@@ -11,3 +11,4 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [ ] Kernel-side ELF loading still has issues. (will ELF loading ever transition to userspace?) (needs VAS)
 - [ ] `sys_map_mmio` is unsafe. Very.
 - [ ] A capability system (or rather any security enforcement system) is needed.
+- [ ] A global error ID system is needed.

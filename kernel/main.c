@@ -34,7 +34,6 @@ void kernel_main(BootInfo *boot_info) {
 
     pmm_init(boot_info);
     vmm_init();
-
     pmm_print_stats();
 
     alloc_init();
@@ -42,7 +41,6 @@ void kernel_main(BootInfo *boot_info) {
     fb_init(boot_info);
 
     pic_remap(32); // After CPU exceptions
-    // ps2_keyboard_init();
 
     msr_ensure();
     syscalls_init();
@@ -57,9 +55,9 @@ void kernel_main(BootInfo *boot_info) {
 
     pmm_print_stats();
 
-    kprintln("Kernel init ended. Switching to userspace.");
-
     process_init();
+
+    kprintln("Kernel init ended.");
     
     start_first_user_process(boot_info);
 }

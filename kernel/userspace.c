@@ -141,5 +141,7 @@ void start_first_user_process(BootInfo *boot_info) {
 
     pit_init();
 
+    kprintln("Switching to userspace.");
+
     enter_userspace(thread->kernel_rsp);
 }
