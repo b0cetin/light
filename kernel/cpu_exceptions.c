@@ -38,15 +38,16 @@ void handle_cpu_exception(InterruptRegisters *regs) {
     bool from_userspace = (regs->cs & 0x3) == 3;
 
     if (from_userspace) {
-        if (ctx_switching_get_active_thread() == null) {
+        Thread *thread = ctx_switching_get_active_thread();
+
+        if (thread == null) {
             kprintln("CPU exception came from userspace but there's no active thread?");
         }
         else {
-            Thread *thread = ctx_switching_get_active_thread();
             Process *process = thread->owner;
 
-            kprintln("PROC: Thread %ld of process %ld encountered exception %ld on instruction %lx.",
-                thread->local_id, process->pid, regs->interrupt_number, regs->rip);
+            kprintln("PROC: Thread %ld of process %ld encountered exception %ld (%x) on instruction %lx.",
+                thread->local_id, process->pid, regs->interrupt_number, regs->interrupt_number, regs->rip);
             
             process_crash_with_switch(process);
             return;

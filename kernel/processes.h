@@ -113,6 +113,6 @@ typedef struct {
 
 bool process_rpc_begin_receive(Thread *receiver);
 typedef enum { RPC_INVOKE_SUCCESS, RPC_INVOKE_CALLEE_NOT_RECEIVING, RPC_INVOKE_DUPLICATE } ProcessRPCInvokeStatus;
-ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc);
-bool process_rpc_reply(Process *callee, Process *caller, uint64_t result);
+ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc, Thread **out_receiver);
+bool process_rpc_reply(Process *callee, Process *caller, uint64_t result, Thread **out_caller);
 bool process_rpc_receive_cancel(Thread *receiver);

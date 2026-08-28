@@ -408,7 +408,7 @@ bool process_rpc_begin_receive(Thread *receiver) {
 }
 
 // Heed warning for process_block_thread.
-ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
+ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc, Thread **out_receiver) {
     Process *caller_p = process_find(rpc->caller_pid);
     if (caller_p == null) PANIC("process_rpc_invoke called with invalid caller PID.");
     Thread *caller_t = process_find_thread(caller_p, rpc->caller_thread_id);
@@ -437,6 +437,8 @@ ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
                 receiver->local_id, receiver->owner->pid, receiver->owner->threads_receiving_rpcs_count);
 
             process_block_thread(caller_t, THREADBLOCK_RPC_WAIT_REPLY, (ThreadBlockTarget){ .rpc_callee_pid = rpc->callee_pid });
+
+            if (out_receiver != null) *out_receiver = receiver;
             return RPC_INVOKE_SUCCESS;
         }
     }
@@ -445,7 +447,7 @@ ProcessRPCInvokeStatus process_rpc_invoke(RPC *rpc) {
 }
 
 // Returns false when no thread was found from caller that was waiting for reply from the callee process.
-bool process_rpc_reply(Process *callee, Process *caller, uint64_t result) {
+bool process_rpc_reply(Process *callee, Process *caller, uint64_t result, Thread **out_caller) {
     for (Thread *i = caller->threads; i != null; i = i->next) {
         if (i->state == THREAD_BLOCKED &&
             i->block_reason == THREADBLOCK_RPC_WAIT_REPLY &&
@@ -453,6 +455,8 @@ bool process_rpc_reply(Process *callee, Process *caller, uint64_t result) {
             Thread *caller = i;
 
             process_unblock_thread(caller, result);
+
+            if (out_caller != null) *out_caller = caller;
             return true;
         }
     }

@@ -12,6 +12,7 @@ static Thread *idle_thread = null;
 static bool has_init = false;
 
 static Thread *active_thread = null;
+static Thread *requested_next = null; // NOTE: Maybe consider a FIFO in the future?
 
 static Thread *pick_next_thread() {
     if (active_thread == null) {
@@ -48,6 +49,15 @@ static Thread *pick_next_thread() {
     return idle_thread;
 }
 
+static Thread *get_next_thread() {
+    if (requested_next == null) return pick_next_thread();
+    else {
+        Thread *next = requested_next;
+        requested_next = null;
+        return next;
+    }
+}
+
 static uint64_t switch_core(Thread *next) {
     if (next == null) PANIC("No thread available to switch to.");
     
@@ -80,7 +90,7 @@ uint64_t isr_context_switch(uint64_t rsp) {
             active_thread->state = THREAD_READY;
     }
 
-    return switch_core(pick_next_thread());
+    return switch_core(get_next_thread());
 }
 
 extern void switch_to_context_immediately(uint64_t rsp);
@@ -88,8 +98,13 @@ extern void switch_to_context_immediately(uint64_t rsp);
 void ctx_switching_switch_next_destructive()
 {
     kprintln("CTX: Switching destructively!");
+    switch_to_context_immediately(switch_core(get_next_thread()));
+}
 
-    switch_to_context_immediately(switch_core(pick_next_thread()));
+// Switches to a specific thread immediately.
+void ctx_switching_switch_to_now(Thread *target) {
+    requested_next = target;
+    __asm__ volatile ("int $0x81");
 }
 
 void ctx_switching_init(Thread *_idle_thread) {

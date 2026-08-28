@@ -27,7 +27,8 @@ rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, u
         .arg3 = arg3,
     };
 
-    ProcessRPCInvokeStatus status = process_rpc_invoke(&rpc);
+    Thread *target_t = null;
+    ProcessRPCInvokeStatus status = process_rpc_invoke(&rpc, &target_t);
 
     switch (status) {
         case RPC_INVOKE_CALLEE_NOT_RECEIVING:
@@ -38,7 +39,7 @@ rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, u
             break;
     }
 
-    sys_yield(); // TODO: Direct the execution to receiver.
+    ctx_switching_switch_to_now(target_t);
 
     return (rpc_result_t){ .error_code = 0, .result = caller_t->wake_result };
 }
@@ -88,10 +89,11 @@ int64_t sys_rpc_return(pid_t caller, uint64_t result) {
     Process *caller_p = process_find(caller);
     if (caller_p == null) return SYS_ERR_RPC_CALLER_DEAD; // FIXME: Shouldn't we check for SYS_ERR_RPC_PID_NOT_CALLER first?
 
-    if (!process_rpc_reply(responder_p, caller_p, result))
+    Thread *caller_t = null;
+    if (!process_rpc_reply(responder_p, caller_p, result, &caller_t))
         return SYS_ERR_RPC_PID_NOT_CALLER;
 
-    // TODO: Direct execution back to caller thread.
+    ctx_switching_switch_to_now(caller_t);
 
     return SYS_SUCCESS;
 }
