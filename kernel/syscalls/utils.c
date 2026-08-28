@@ -6,16 +6,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
-bool is_valid_mapped_user_range(uintptr_t ptr, size_t size) { // TODO: Check for the actual range
+bool is_valid_mapped_user_range(uintptr_t ptr, size_t size) {
     if (!is_valid_mappable_user_range(ptr, size)) return false;
 
-    uint64_t flags, phys;
-    
-    if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->user_cr3, ptr, &phys, &flags))
-        return false;
+    uint64_t flags;
 
-    uint64_t mask = PT_PRESENT | PT_USER;// | PT_RW | PT_NX;
-    return (flags & mask) == mask; 
+    uint64_t start_page = ptr & PT_ADDRESS_MASK;
+    uint64_t end_page = (ptr + size) & PT_ADDRESS_MASK;
+    size_t page_count = (end_page - start_page) / PAGE_SIZE + 1;
+    
+    for (size_t i = 0; i < page_count; i++) {
+        if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->user_cr3, start_page + i * PAGE_SIZE, null, &flags))
+            return false;
+    }
+
+    uint64_t mask = PT_PRESENT | PT_USER;
+    return (flags & mask) == mask;
 }
 
 bool is_valid_mappable_user_range(uintptr_t ptr, size_t size) {

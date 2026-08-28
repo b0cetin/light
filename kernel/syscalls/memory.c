@@ -170,35 +170,36 @@ int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) 
 }
 
 int64_t sys_memory_share(void *address, size_t length, Sys_SharedMemoryID *out_id) {
-    if (!is_valid_mapped_user_range((uintptr_t) out_id, sizeof(SharedMemoryID*)))
-        return -1;
+    PANIC("sys_memory_share not implemented.");
+    // if (!is_valid_mapped_user_range((uintptr_t) out_id, sizeof(SharedMemoryID*)))
+    //     return -1;
 
-    if (length & 0xFFF || ((uintptr_t) address) & 0xFFF)
-        return SYS_ERR_MSHARE_ARG_UNALIGNED;
+    // if (length & 0xFFF || ((uintptr_t) address) & 0xFFF)
+    //     return SYS_ERR_MSHARE_ARG_UNALIGNED;
 
-    if (!is_valid_mapped_user_range((uintptr_t) address, length)) // FIXME: The process should only be able to map what's been mapped with sys_memory_map.
-        return SYS_ERR_MSHARE_UNMAPPED;
+    // if (!is_valid_mapped_user_range((uintptr_t) address, length)) // FIXME: The process should only be able to map what's been mapped with sys_memory_map.
+    //     return SYS_ERR_MSHARE_UNMAPPED;
 
-    uint64_t end;
-    if (__builtin_add_overflow((uintptr_t) address, length, &end)) // A possible attack target.
-        return SYS_ERR_MMAP_INVALID_RANGE;
+    // uint64_t end;
+    // if (__builtin_add_overflow((uintptr_t) address, length, &end)) // A possible attack target.
+    //     return SYS_ERR_MMAP_INVALID_RANGE;
     
-    uint64_t page_count = length / PAGE_SIZE;
+    // uint64_t page_count = length / PAGE_SIZE;
 
-    if (page_count == 0)
-        return SYS_ERR_MMAP_INVALID_RANGE;
+    // if (page_count == 0)
+    //     return SYS_ERR_MMAP_INVALID_RANGE;
 
-    Process *process = ctx_switching_get_active_thread()->owner;
-    if (process->is_ring_0) return -1;
+    // Process *process = ctx_switching_get_active_thread()->owner;
+    // if (process->is_ring_0) return -1;
 
-    SharedMemoryID id = smem_create(process->user_cr3, (uintptr_t) address, page_count);
-    if (id == SMEM_NULL_ID) {
-        kprintln("smem_create returned SMEM_NULL_ID!");
-        return -1;
-    }
+    // SharedMemoryID id = smem_create(process->user_cr3, (uintptr_t) address, page_count);
+    // if (id == SMEM_NULL_ID) {
+    //     kprintln("smem_create returned SMEM_NULL_ID!");
+    //     return -1;
+    // }
 
-    *out_id = id;
-    return SYS_SUCCESS;
+    // *out_id = id;
+    // return SYS_SUCCESS;
 }
 
 int64_t sys_memory_share_map(Sys_SharedMemoryID id, void **address) {

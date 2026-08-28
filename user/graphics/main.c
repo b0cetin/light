@@ -24,8 +24,11 @@ int main() {
         pid_t pid;
         uint64_t call, arg0, arg1, arg2, arg3;
 
-        if (sys_rpc_receive(&pid, &call, &arg0, &arg1, &arg2, &arg3) != SYS_SUCCESS)
+        int64_t receive_result = sys_rpc_receive(&pid, &call, &arg0, &arg1, &arg2, &arg3);
+        if (receive_result != SYS_SUCCESS) {
+            println("sys_rpc_receive failed: %li", receive_result);
             return -1;
+        }
 
         if (pid != 0) {
             sys_rpc_return(pid, (int64_t) -1);
