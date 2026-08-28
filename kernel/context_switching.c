@@ -104,7 +104,12 @@ void ctx_switching_switch_next_destructive()
 // Switches to a specific thread immediately.
 void ctx_switching_switch_to_now(Thread *target) {
     requested_next = target;
-    __asm__ volatile ("int $0x81");
+    __asm__ volatile (
+        "swapgs\n"
+        "int $0x81\n"
+        "swapgs\n"
+        ::: "memory"
+    );
 }
 
 void ctx_switching_init(Thread *_idle_thread) {
