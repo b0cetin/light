@@ -1,0 +1,78 @@
+
+# light OS
+
+The light Operating System is a hobby from-scratch 64-bit OS designed to run on the x86_64 processor architecture using UEFI. The OS (as a collection) is all located inside of this repository.
+
+## Getting Started
+
+> [!NOTE]
+> Before truly getting started, it is recommended that you take a grasp at how the OS is structured. See below.
+
+The OS dev environment is structured inside a Docker devcontainer (see `.devcontainer/`). I personally use the "Dev Containers" extension with Visual Studio Code to develop the project. Setting the container up for the first time will take a long time as it has to: A) Download and make EFI libraries and linker target. B) Download and make a bare `x86_64-elf` cross-compiler (gcc, binutils, gdb.)
+
+As I use Visual Studio Code, the tasks and launch options (with extension settings for the "clangd" extension) will already be set up for you.
+
+On the host system, `qemu-system-x86_64` is needed. The `run.sh` launch script utilizes it. For the devcontainer to launch the script, `mac-host-runner.sh` needs to be running in the background for it to pick up the launch request. This gets to the platform support of the dev environment.
+
+**Platform Support**
+
+| | macOS | Linux | Windows |
+| --- | --- | --- | --- |
+| devcontainer | ✅ | ✅ | ✅ |
+| Run script | ✅ `run.sh` | ✅ `run.sh` | ❌ |
+| Host runner service | ✅ `mac-host-runner.sh` | ❌ | ❌ |
+
+After getting into the devcontainer, run `bear -- make` to generate `compile_commands.json`.
+
+Running `make run` inside the devcontainer will compile the OS and trigger the run script, regardless of the editor.
+
+## Sections
+
+The entire project is almost fully written from scratch. No libc, no allocator library, no nothing.
+
+The OS has three sections: **Bootloader `bootloader`**, **the light kernel `kernel`**, and the **userspace programs `user`**.
+
+### Bootloader
+
+The bootloader is nothing special. It is an increadibly basic EFI OS loader. It has 5 jobs:
+
+1. Load the kernel and userspace boot modules into memory.
+2. Parse the kernel ELF file.
+3. Store the UEFI memory map and the GOP framebuffer in memory.
+4. Switch to own memory map with both identical and higher-half memory mapping.
+5. Pass execution to the kernel's entry point.
+
+### Kernel
+
+This is where the majority of the codebase lies. The kernel tries to follow the principles of a microkernel, trying to keep policy out of it as much as possible. Of course, sometimes it has to break that rule, but it is few and far in between. It has various jobs, most of which I won't go in detail here, but to summarize it aims to do this: Launch into userspace, mediate access to hardware, and provide ways to communicate between processes.
+
+The kernel currently features a single-core pre-emptive task scheduler, with a syscall (`sys_yield`) that allows processes to give up execution at any point.
+
+The boot routine ends with the kernel parsing the `init` ELF file (read into memory by the bootloader), creating a process for it, passing along some initialization info (see `user/init/init_info.h`) and switching to userspace.
+
+#### The multitastking system
+
+As mentioned above, the kernel uses a pre-emptive multitasking system where the execution control is manually taken away from running processes in regular intervals. The process/thread system goes against Linux's task system and follows a more traditional process-thread hierarchy are relation. The system has processes, the processes have threads local to themselves which share address space and more with each other, and threads are blocks of execution. A process must have at least one thread (otherwise it is terminated) and is free to create as many threads as it wants.
+
+Thread switching currently uses a *round-robin* scheduler, but this is bound to change in the future.
+
+### The kernel-userspace interface layer (Syscalls)
+
+All userspace processes interact with the kernel and hardware through amd64 syscalls. The syscalls use a modified version of the *x86_64 Linux Syscall ABI* with *the `rdx` register being used as a secondary return value or if not used **always being clobbered***. You can read the syscall specification in the `syscall_specification.md` Markdown file.
+
+### Userspace Programs
+
+This is where the OS is defined. This is the most incomplete section of the operating system.
+
+> [!WARNING]
+> This section is purposefully left undocumented as it is very bare and changes every couple of days. The information written is mostly permenant and won't change.
+
+#### `user/init`: The light system init executable
+
+The userspace can be seen as "the init program and *everything else*". This is the first process started, and it always has the PID `0`. This init process launches other programs and has some special privileges.
+
+#### `user/keyboard`: The keyboard stack / PS/2 keyboard driver
+
+#### `user/graphics`: The graphics subsystem
+
+A Wayland-like graphics subsystem.
