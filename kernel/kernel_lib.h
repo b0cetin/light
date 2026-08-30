@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 void memcpy(void *dest, const void* src, uint64_t size);
-
 void memset(void *adr, uint8_t value, uint64_t size);
+int memcmp(const void *s1, const void *s2, size_t n);
 
 static inline void memzero(void *adr, uint64_t size) {
     memset(adr, 0, size);

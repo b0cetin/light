@@ -26,6 +26,10 @@ After getting into the devcontainer, run `bear -- make` to generate `compile_com
 
 Running `make run` inside the devcontainer will compile the OS and trigger the run script, regardless of the editor.
 
+### QEMU and EDK II
+
+As mentioned above, the x86_64 target of QEMU is needed for the run script to work. In addition, the run script loads UEFI code and variables from under the (gitignored, create it yourself) `qemu` directory: `edk2-x86_64-code.fd`, `ovmf-vars.fd`. On macOS, these files come prebuilt and ready with QEMU on Homebrew. On Linux, some distros ship it with the system and some don't, you can look up what's the case for your own distro. On Windows... no clue. Don't forget to *copy* and *not move* these files into the project.
+
 ## Sections
 
 The entire project is almost fully written from scratch. No libc, no allocator library, no nothing.

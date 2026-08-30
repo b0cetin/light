@@ -30,5 +30,7 @@ typedef struct {
         uint64_t DescriptorSize;
     } memory_map;
 
+    uint64_t physical_xsdp_address;
+
     ReadModule modules[READ_MODULE_COUNT];
 } BootInfo;

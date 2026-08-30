@@ -11,6 +11,7 @@
 #define MSR_SFMASK         0xC0000084
 #define MSR_GS_BASE        0xC0000101
 #define MSR_KERNEL_GS_BASE 0xC0000102
+#define MSR_IA32_APIC_BASE 0x1B
 
 static inline void msr_ensure()
 {

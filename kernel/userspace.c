@@ -1,13 +1,13 @@
 
 #include "userspace.h"
 #include "allocator.h"
+#include "apic.h"
 #include "boot_modules.h"
 #include "bootinfo.h"
 #include "context_switching.h"
 #include "debugging.h"
 #include "elf_loader.h"
 #include "kernel_lib.h"
-#include "pit.h"
 #include "pmm.h"
 #include "processes.h"
 #include "syscalls.h"
@@ -137,9 +137,9 @@ void start_first_user_process(BootInfo *boot_info) {
 
     vmm_switch_to_user_address_space(process->user_cr3);
 
-    ctx_switching_init(create_idle_thread());
+    ctx_switching_init(thread, create_idle_thread());
 
-    pit_init();
+    lapic_timer_init(32, 100);
 
     kprintln("Switching to userspace.");
 

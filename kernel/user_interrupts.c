@@ -1,10 +1,11 @@
 
 #include "user_interrupts.h"
 #include "debugging.h"
-#include "pic.h"
 #include "processes.h"
 #include "types.h"
 #include <stdint.h>
+
+// FIXME: This system will probably need a refactor/redesign if APIC being adopted.
 
 static ReservableIRQ table[RESERVABLE_IRQ_TABLE_MAX];
 
@@ -24,7 +25,9 @@ void user_irq_reserve(uint8_t vector, Process *process) {
     entry->reserver = process;
     entry->awaiter = null;
 
-    pic_clear_mask(vector);
+    PANIC("pic_clear_mask removed.");
+    // pic_clear_mask(vector);
+    // FIXME
 
     kprintln("USER_IRQ: Vector %d is now reserved for process %ld.",
         vector, process->pid);
@@ -41,7 +44,9 @@ void user_irq_unreserve(uint8_t vector, Process *process) {
 
     entry->reserver = null;
 
-    pic_set_mask(vector);
+    PANIC("pic_set_mask removed.");
+    // pic_set_mask(vector);
+    // FIXME
 
     kprintln("USER_IRQ: Vector %d is now unreserved.", vector);
 }
@@ -73,7 +78,9 @@ void user_irq_awaken(uint8_t vector)
 {
     ReservableIRQ *entry = user_irq_get_reservation(vector);
 
-    pic_send_eoi(vector);
+    PANIC("pic_send_eoi removed.");
+    // pic_send_eoi(vector);
+    // FIXME
 
     if (entry->awaiter == null) {
         entry->queue++;

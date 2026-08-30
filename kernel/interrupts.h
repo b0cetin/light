@@ -11,4 +11,4 @@ typedef struct {
     uint64_t rip, cs, rflags, rsp, ss; // Pushed automatically by CPU
 } __attribute__((packed)) InterruptRegisters;
 
-void register_interrupt_handler(uint64_t interrupt_index, void (*int_handler)(InterruptRegisters *));
+void register_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *));

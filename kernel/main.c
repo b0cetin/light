@@ -1,5 +1,7 @@
 
+#include "acpi.h"
 #include "allocator.h"
+#include "apic.h"
 #include "boot_modules.h"
 #include "bootinfo.h"
 #include "debugging.h"
@@ -7,7 +9,6 @@
 #include "gdt.h"
 #include "idt.h"
 #include "msr.h"
-#include "pic.h"
 #include "pmm.h"
 #include "processes.h"
 #include "processor_info.h"
@@ -40,7 +41,8 @@ void kernel_main(BootInfo *boot_info) {
 
     fb_init(boot_info);
 
-    pic_remap(32); // After CPU exceptions
+    acpi_init(boot_info);
+    apic_init();
 
     msr_ensure();
     syscalls_init();
@@ -48,8 +50,6 @@ void kernel_main(BootInfo *boot_info) {
     char vendor[13];
     cpuid_read_vendor(vendor);
     kprintln("CPU vendor: %s", vendor);
-
-    cpuid_check_apic() ? kprintln("APIC is supported.") : kprintln("APIC is not supported.");
 
     fb_draw_text(fb_width() / 2 - 40, fb_height() - 200, "light", COLOR_WHITE);
 

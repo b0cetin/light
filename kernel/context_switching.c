@@ -112,9 +112,10 @@ void ctx_switching_switch_to_now(Thread *target) {
     );
 }
 
-void ctx_switching_init(Thread *_idle_thread) {
+void ctx_switching_init(Thread *init_thread, Thread *_idle_thread) {
     if (has_init) PANIC("ctx_switching_init called when already initialized.");
 
+    active_thread = init_thread;
     idle_thread = _idle_thread;
     has_init = true;
 }

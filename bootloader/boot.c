@@ -125,8 +125,25 @@ ReadResult read_file(EFI_FILE_HANDLE volume, CHAR16 *path, ReadModule read_modul
     return read_result;
 }
 
+void print_efi_info(EFI_SYSTEM_TABLE* system_table) {
+    Print(L"Firmware vendor: %s\n", system_table->FirmwareVendor);
+    Print(L"Firmware revision: 0x%08X\n", system_table->FirmwareRevision);
+
+    uint32_t revision = system_table->Hdr.Revision;
+    
+    uint32_t major = revision >> 16;
+    uint32_t minor = revision & 0xFF;
+
+    if (minor % 10 == 0)
+        Print(L"UEFI spec revision: %u.%u\n", major, minor / 10);
+    else
+        Print(L"UEFI spec revision: %u.%u.%u\n", major, minor / 10, minor % 10);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     InitializeLib(ImageHandle, SystemTable);
+
+    print_efi_info(SystemTable);
 
     EFI_FILE_HANDLE volume;
     if(EFI_ERROR(open_volume(ImageHandle, &volume)))
@@ -154,6 +171,13 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
         while(1) {}
 
     set_gop_into_boot_info(gop, &bootInfo);
+
+    EFI_GUID acpi_guid = ACPI_20_TABLE_GUID;
+    for (uint64_t i = 0; i < SystemTable->NumberOfTableEntries; i++) {
+        if (CompareMem(&SystemTable->ConfigurationTable[i].VendorGuid, &acpi_guid, sizeof(EFI_GUID)) == 0) {
+            bootInfo.physical_xsdp_address = (uint64_t) SystemTable->ConfigurationTable[i].VendorTable;
+        }
+    }
 
     init_mapping();
 

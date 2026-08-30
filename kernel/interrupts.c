@@ -6,18 +6,20 @@
 #include "user_interrupts.h"
 #include <stdint.h>
 
-#define INTERRUPT_COUNT 224
+#define INTERRUPT_COUNT 256
 
+// First 32 are reserved.
 void (*int_handlers[INTERRUPT_COUNT])(InterruptRegisters *);
 
-void register_interrupt_handler(uint64_t interrupt_index, void (*int_handler)(InterruptRegisters *)) {
-    if (interrupt_index == 0) {
-        PANIC("Tried to register interrupt handler for 32. Already reserved for context switching!");
-    }
+void register_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *)) {
+    if (interrupt_index < 32)
+        PANIC("Interrupt index is smaller 32, reaching into CPU exceptions!");
 
-    if (int_handlers[interrupt_index] != null) {
+    if (interrupt_index == 32 || interrupt_index == 0x81)
+        PANIC("Tried to register interrupt handler for 32 or 0x81. Already reserved for context switching!");
+
+    if (int_handlers[interrupt_index] != null)
         PANIC("Interrupt index re-registered: %d", interrupt_index);
-    }
 
     int_handlers[interrupt_index] = int_handler;
 }
@@ -28,21 +30,20 @@ void isr_handler(InterruptRegisters *regs) {
         return;
     }
 
-    uint64_t interrupt_index = regs->interrupt_number - 32;
-
-    if (interrupt_index >= INTERRUPT_COUNT) {
-        PANIC("Interrupt index reached over possible threshold (%d): %d", INTERRUPT_COUNT, interrupt_index);
+    if (regs->interrupt_number >= INTERRUPT_COUNT) {
+        PANIC("Interrupt index reached over possible threshold (%d): %d", INTERRUPT_COUNT, regs->interrupt_number);
     }
 
-    if (int_handlers[interrupt_index] != null) {
-        int_handlers[interrupt_index](regs);
+    if (int_handlers[regs->interrupt_number] != null) {
+        int_handlers[regs->interrupt_number](regs);
         return;
     }
 
-    if (user_irq_get_reservation(interrupt_index)->reserver != null) {
-        user_irq_awaken(interrupt_index);
+    // FIXME: This will change with I/O APIC.
+    if (user_irq_get_reservation(regs->interrupt_number)->reserver != null) {
+        user_irq_awaken(regs->interrupt_number);
         return;
     }
 
-    PANIC("No handler registered for interrupt index: %d", interrupt_index);
+    PANIC("No handler registered for interrupt index: %d", regs->interrupt_number);
 }
