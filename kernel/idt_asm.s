@@ -108,12 +108,15 @@ isr_common:
     # Return from interrupt
     iretq
 
+.extern lapic_end_of_interrupt
 isr_ctx_switch:
     cld # Clear Direction Flag for ABI compliance
 
     # Save all registers (context switching)
     pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
     pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
+
+    call lapic_end_of_interrupt
 
     # Pass the stack pointer to C
     movq %rsp, %rdi

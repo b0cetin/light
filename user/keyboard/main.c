@@ -7,6 +7,11 @@
 int main() {
     println("Keyboard driver started.");
 
+    while (sys_port_io_in(0x64, PIO_SIZE_BYTE) & 1) {
+        sys_port_io_in(0x60, PIO_SIZE_BYTE); // Read and discard stale bytes
+        println("Discarding stale byte...");
+    }
+
     int64_t status = 0;
 
     status = sys_interrupt_control(IRQCTL_SET, 1);

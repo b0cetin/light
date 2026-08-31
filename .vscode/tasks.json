@@ -9,6 +9,13 @@
             "presentation": { "reveal": "always", "panel": "shared", "clear": true }
         },
         {
+            "label": "clean",
+            "type": "shell",
+            "command": "make clean",
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+        },
+        {
             "label": "run",
             "type": "shell",
             "command": "make run",

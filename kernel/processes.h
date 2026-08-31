@@ -12,7 +12,7 @@ typedef enum { THREAD_NULL, THREAD_READY, THREAD_RUNNING, THREAD_BLOCKED } Threa
 typedef enum { PROCESS_ALIVE, PROCESS_TERMINATING, PROCESS_STARTING } ProcessState;
 
 typedef enum { THREADBLOCK_NULL, THREADBLOCK_ANOTHER_THREAD, THREADBLOCK_IRQ, THREADBLOCK_RPC_RECEIVE, THREADBLOCK_RPC_WAIT_REPLY } ThreadBlockReason;
-typedef union { uint64_t target_thread_id; uint8_t irq_vector; uint64_t rpc_callee_pid; } ThreadBlockTarget;
+typedef union { uint64_t target_thread_id; uint8_t irq_awaiting; uint64_t rpc_callee_pid; } ThreadBlockTarget;
 
 typedef struct ThreadChainItem {
     struct Thread *thread;

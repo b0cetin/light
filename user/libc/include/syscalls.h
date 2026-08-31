@@ -49,22 +49,22 @@ static inline int64_t sys_create_process(void *content, size_t content_len, cons
     return syscall(8, (uint64_t) content, (uint64_t) content_len, (uint64_t) name, (uint64_t) name_len, (uint64_t) out_pid, 0).rax;
 }
 
-#define SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED -2
+#define SYS_ERR_IRQCTL_IRQ_NOT_RESERVED -2
 #define SYS_ERR_IRQCTL_AWAIT_DUPLICATE -3
 #define SYS_ERR_IRQCTL_AWAIT_CANCELLED -4
 #define SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED -5
-#define SYS_ERR_IRQCTL_VECTOR_IN_USE -6
-#define SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE -7
+#define SYS_ERR_IRQCTL_IRQ_IN_USE -6
+#define SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE -7
 #define SYS_ERR_IRQCTL_REQUEST_INVALID -8
-#define SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING -9
+#define SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING -9
 typedef enum {
     IRQCTL_SET    = 0x0,
     IRQCTL_AWAIT  = 0x1,
     IRQCTL_CANCEL = 0x2,
     IRQCTL_UNSET  = 0x3,
 } IRQCTLRequest;
-static inline int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector) {
-    return syscall(9, request, vector, 0, 0, 0, 0).rax;
+static inline int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t irq) {
+    return syscall(9, request, irq, 0, 0, 0, 0).rax;
 }
 
 typedef enum {

@@ -13,6 +13,7 @@ typedef struct {
 } __attribute__((packed)) InterruptRegisters;
 
 void register_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *));
+void interrupts_remove_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *));
 
 bool interrupts_is_handler_registered(uint8_t interrupt_index);
 uint8_t interrupts_get_empty_vector();

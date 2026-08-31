@@ -14,6 +14,7 @@
 #include "processor_info.h"
 #include "serial.h"
 #include "syscalls.h"
+#include "user_interrupts.h"
 #include "userspace.h"
 #include "vmm.h"
 #include <stdint.h>
@@ -58,6 +59,7 @@ void kernel_main(BootInfo *boot_info) {
     pmm_print_stats();
 
     process_init();
+    user_irq_init();
 
     kprintln("Kernel init ended.");
     

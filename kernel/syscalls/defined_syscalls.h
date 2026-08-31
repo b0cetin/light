@@ -18,21 +18,21 @@ uint64_t sys_get_thread_id();
 uint64_t sys_get_pid();
 int64_t sys_create_process(void *content, size_t content_len, const char* name, size_t name_len, uint64_t *out_pid);
 
-#define SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED -2
+#define SYS_ERR_IRQCTL_IRQ_NOT_RESERVED -2
 #define SYS_ERR_IRQCTL_AWAIT_DUPLICATE -3
 #define SYS_ERR_IRQCTL_AWAIT_CANCELLED -4
 #define SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED -5
-#define SYS_ERR_IRQCTL_VECTOR_IN_USE -6
-#define SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE -7
+#define SYS_ERR_IRQCTL_IRQ_IN_USE -6
+#define SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE -7
 #define SYS_ERR_IRQCTL_REQUEST_INVALID -8
-#define SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING -9
+#define SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING -9
 typedef enum {
     IRQCTL_SET    = 0x0,
     IRQCTL_AWAIT  = 0x1,
     IRQCTL_CANCEL = 0x2,
     IRQCTL_UNSET  = 0x3,
 } IRQCTLRequest;
-int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector);
+int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t irq);
 
 typedef enum {
     PIO_SIZE_BYTE  = 0x0,

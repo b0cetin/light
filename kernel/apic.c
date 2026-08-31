@@ -20,6 +20,7 @@ volatile void *ioapic_base;
 #define MSR_IA32_APIC_BASE_ENABLE (1 << 11)
 #define APIC_VECTOR_DISABLED (1 << 16)
 
+#define REG_LAPIC_ID 0x20
 #define REG_SPURIOUS_INTERRUPT_VECTOR 0xF0
 #define REG_END_OF_INTERRUPT 0xB0
 #define REG_TASK_PRIORITY 0x80
@@ -240,13 +241,14 @@ void ioapic_route(uint8_t irq, uint8_t vector) {
         if (override.source == irq) {
             irq = override.gsi;
             flags = override.flags;
+            break;
         }
     }
     
     uint8_t reg_low = 0x10 + (irq * 2);
     uint8_t reg_high = reg_low + 1;
 
-    uint8_t low_value = vector;
+    uint32_t low_value = vector;
 
     if ((flags & MADT_FLAGS_ACTIVE_LOW_OVERRIDE) == MADT_FLAGS_ACTIVE_LOW_OVERRIDE)
         low_value |= 1 << 13; // Polarity of the interrupt. 0 = High is active, 1 = Low is active.
@@ -254,10 +256,12 @@ void ioapic_route(uint8_t irq, uint8_t vector) {
     if ((flags & MADT_FLAGS_ACTIVE_LEVEL_TRIGGERED) == MADT_FLAGS_ACTIVE_LEVEL_TRIGGERED)
         low_value |= 1 << 15; // Trigger mode. 0 = Edge sensitive, 1 = Level sensitive.
 
-    ioapic_write(reg_low, low_value);
-    ioapic_write(reg_high, 0 << 24);
+    uint32_t lapic_id = lapic_read(REG_LAPIC_ID);
 
-    // NOTE: Since the kernel is single-core, the APIC ID is 0.
+    ioapic_write(reg_high, lapic_id << 24);
+    ioapic_write(reg_low, low_value);
+
+    // NOTE: This implementation assumes the kernel is single-core.
 }
 
 void ioapic_mask(uint8_t irq) {
