@@ -42,7 +42,7 @@ The bootloader is nothing special. It is an increadibly basic EFI OS loader. It 
 
 1. Load the kernel and userspace boot modules into memory.
 2. Parse the kernel ELF file.
-3. Store the UEFI memory map and the GOP framebuffer in memory.
+3. Store the UEFI memory map, ACPI pointer and the GOP framebuffer in memory.
 4. Switch to own memory map with both identical and higher-half memory mapping.
 5. Pass execution to the kernel's entry point.
 

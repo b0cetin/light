@@ -10,8 +10,6 @@
 #include "utils.h"
 
 void sys_exit(int64_t status) {
-    asm volatile ("swapgs");
-
     process_begin_process_teardown(ctx_switching_get_active_thread()->owner, status);
     // TODO: Maybe change specification to report errors?
 }

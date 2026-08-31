@@ -34,8 +34,6 @@ UserIRQReservation *user_irq_find_reservation_from_vector(uint8_t vector) {
 }
 
 void user_irq_interrupt_handler(InterruptRegisters *reg) {
-    kprintln("user_irq_interrupt_handler: %d", reg->interrupt_number);
-
     UserIRQReservation *reservation = null;
 
     if (!ht_lookup(vector_to_reservation, reg->interrupt_number, (uintptr_t*) &reservation))

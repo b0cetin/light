@@ -37,7 +37,7 @@ void syscalls_init() {
 
     local_cpu_data.user_stack = 0; // Will be set later by the user.
 
-    msr_write(MSR_GS_BASE, 0); // This will flip when transitioning to user mode.
+    msr_write(MSR_GS_BASE, 0); // This will flip when transitioning back from user mode.
     msr_write(MSR_KERNEL_GS_BASE, (uint64_t)&local_cpu_data);
 
     kprintln("SYSCALLS initialized.");

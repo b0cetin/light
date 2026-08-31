@@ -28,8 +28,10 @@ int main() {
             break;
         }
 
-        uint8_t scancode = sys_port_io_in(0x60, PIO_SIZE_BYTE);
-        println("Scancode: %#hhx", scancode);
+        while (sys_port_io_in(0x64, PIO_SIZE_BYTE) & 1) {
+            uint8_t scancode = sys_port_io_in(0x60, PIO_SIZE_BYTE);
+            println("Scancode: %#hhx", scancode);
+        }
     }
 
     println("Shutting down keyboard driver.");

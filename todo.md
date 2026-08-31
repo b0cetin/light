@@ -4,7 +4,7 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [x] Hash tables. `processes.c` and `shared_memory.c` need them.
 - [ ] Userspace process VAS tracking.
 - [x] VMM needs a reframing for CR3 management (see `context_switching.c`)
-- [ ] APIC support. We're still using the PIC and the PIT.
+- [x] APIC support. We're still using the PIC and the PIT.
 - [x] `is_valid_mapped_user_range` still needs to check for range.
 - [x] Directing thread execution to specific thread support. `rpc.c` needs it.
 - [ ] RPC fastpath

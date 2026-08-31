@@ -59,4 +59,5 @@ syscall_entry:
 
     movq %gs:8, %rsp
     swapgs
+    sti
     sysretq

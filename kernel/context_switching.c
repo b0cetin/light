@@ -78,8 +78,8 @@ static uint64_t switch_core(Thread *next) {
 uint64_t isr_context_switch(uint64_t rsp) {
     static uint64_t count = 0;
 
-    if (count++ >= 64) {
-        kprintln("CTX: Switched 64 times.");
+    if (count++ >= 200) {
+        kprintln("CTX: Switched 200 times.");
         count = 0;
     }
 
@@ -105,9 +105,7 @@ void ctx_switching_switch_next_destructive()
 void ctx_switching_switch_to_now(Thread *target) {
     requested_next = target;
     __asm__ volatile (
-        "swapgs\n"
         "int $0x81\n"
-        "swapgs\n"
         ::: "memory"
     );
 }

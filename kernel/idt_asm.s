@@ -18,7 +18,7 @@ isr_\num:
     jmp isr_common
 .endm
 
-# A macro for context switching timer on 32 (available after remap)
+# A macro for context switching timer on 32
 .macro ISR_CTX_SWITCH
 .global isr_32
 isr_32:
@@ -26,7 +26,7 @@ isr_32:
     jmp isr_ctx_switch
 .endm
 
-# A macro for manual context switching on 0x81 (available after remap)
+# A macro for manual context switching on 0x81
 .macro ISR_CTX_SWITCH_MANUAL
 .global isr_129
 isr_129:
@@ -80,82 +80,76 @@ ISR_CTX_SWITCH_MANUAL
     .set i, i+1
 .endr
 
-# Common handler (C function)
-.extern isr_handler
+.macro PUSH_CONTEXT
+    pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
+    pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
+.endm
 
-# Context switching handler (C function)
+.macro POP_CONTEXT
+    popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp
+    popq %r8;  popq %r9;  popq %r10; popq %r11; popq %r12; popq %r13; popq %r14; popq %r15
+.endm
+
+.macro SWAPGS_IF_USER reg_count
+    movq ((\reg_count * 8) + 8)(%rsp), %rax // Peak into SS, not RIP.
+    test $0b11, %rax
+    jz 1f
+    swapgs
+1:
+.endm
+
+# C handlers
+.extern isr_handler
 .extern isr_context_switch
+.extern lapic_end_of_interrupt
 
 isr_common:
     cld # Clear Direction Flag for ABI compliance
 
-    # Save all registers (context switching)
-    pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
-    pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
+    PUSH_CONTEXT
+    SWAPGS_IF_USER 17
 
     # Pass the stack pointer to C
     movq %rsp, %rdi
-
     call isr_handler
 
-    # Restore registers
-    popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp
-    popq %r8;  popq %r9;  popq %r10; popq %r11; popq %r12; popq %r13; popq %r14; popq %r15
+    SWAPGS_IF_USER 17
+    POP_CONTEXT
 
-    # Clean up error code and interrupt number
-    addq $16, %rsp
-
-    # Return from interrupt
+    addq $16, %rsp # Clean up error code and interrupt number
     iretq
 
-.extern lapic_end_of_interrupt
 isr_ctx_switch:
     cld # Clear Direction Flag for ABI compliance
 
-    # Save all registers (context switching)
-    pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
-    pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
-
-    call lapic_end_of_interrupt
+    PUSH_CONTEXT
+    SWAPGS_IF_USER 15
 
     # Pass the stack pointer to C
     movq %rsp, %rdi
-
     call isr_context_switch
 
-    # C function returns the stack pointer to switch to
-    movq %rax, %rsp
-    
-    movb $0x20, %al
-    outb %al, $0x20 # Send EOI to PIC so that the next tick can come.
+    pushq %rax
+    call lapic_end_of_interrupt
+    popq %rsp # C function returns the stack pointer to switch to
 
-    # Restore registers
-    popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp
-    popq %r8;  popq %r9;  popq %r10; popq %r11; popq %r12; popq %r13; popq %r14; popq %r15
-
-    # Return from interrupt
+    SWAPGS_IF_USER 15
+    POP_CONTEXT
     iretq
 
 isr_ctx_switch_manual:
     cld # Clear Direction Flag for ABI compliance
 
-    # Save all registers (context switching)
-    pushq %r15; pushq %r14; pushq %r13; pushq %r12; pushq %r11; pushq %r10; pushq %r9; pushq %r8
-    pushq %rbp; pushq %rdi; pushq %rsi; pushq %rdx; pushq %rcx; pushq %rbx; pushq %rax
+    PUSH_CONTEXT
+    SWAPGS_IF_USER 15
 
     # Pass the stack pointer to C
     movq %rsp, %rdi
-
     call isr_context_switch
+    movq %rax, %rsp # C function returns the stack pointer to switch to
 
-    # C function returns the stack pointer to switch to
-    movq %rax, %rsp
-
-    # Restore registers
-    popq %rax; popq %rbx; popq %rcx; popq %rdx; popq %rsi; popq %rdi; popq %rbp
-    popq %r8;  popq %r9;  popq %r10; popq %r11; popq %r12; popq %r13; popq %r14; popq %r15
-
-    # Return from interrupt
+    SWAPGS_IF_USER 15
+    POP_CONTEXT
     iretq
 
 .macro ISR_STUB n

@@ -3,7 +3,6 @@
 #include "cpu_exceptions.h"
 #include "debugging.h"
 #include "types.h"
-#include "user_interrupts.h"
 #include <stdint.h>
 
 #define INTERRUPT_COUNT 256
@@ -26,7 +25,7 @@ void isr_handler(InterruptRegisters *regs) {
         return;
     }
 
-    PANIC("No handler registered for interrupt index: %d", regs->interrupt_number);
+    kprintln("INT: No handler registered for interrupt index: %d", regs->interrupt_number);
 }
 
 void register_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *)) {

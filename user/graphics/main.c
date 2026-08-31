@@ -67,7 +67,7 @@ int main() {
         println("Faded.");
     }
 
-    memset(buffer, 0xFF, size);
+    memset(buffer, 0x50, size);
 
     // println("Testing memory sharing.");
     // println("Mapping first.");

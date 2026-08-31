@@ -18,29 +18,13 @@ int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id) {
 }
 
 void sys_exit_thread(void *result) {
-    asm volatile ("swapgs");
-
     process_begin_thread_teardown(ctx_switching_get_active_thread(), (uint64_t) result);
     // TODO: Maybe change specification to report errors?
 }
 
 void sys_yield() {
-    // NOTE: The interrupt handler doesn't touch swapgs.
-    // GS register is only relevant for context switching
-    // for the syscall. Therefore, if we don't swap to
-    // the user's gs now, if the yielded thread performs
-    // a syscall, then the GS register will point to
-    // the wrong memory.
-
-    // NOTE: The same can be said about every syscall
-    // that context switches to another thread.
-    // iretq doesn't touch the GS register so we
-    // need to fix it ourselves.
-
     asm volatile (
-        "swapgs\n"
         "int $0x81\n"
-        "swapgs\n"
         ::: "memory"
     );
 }
