@@ -39,11 +39,26 @@ void isr_handler(InterruptRegisters *regs) {
         return;
     }
 
-    // FIXME: This will change with I/O APIC.
-    if (user_irq_get_reservation(regs->interrupt_number)->reserver != null) {
-        user_irq_awaken(regs->interrupt_number);
+    if (user_irq_find_reservation_from_vector(regs->interrupt_number)->reserver != null) {
+        user_irq_awaken_by_vector(regs->interrupt_number);
         return;
     }
 
     PANIC("No handler registered for interrupt index: %d", regs->interrupt_number);
+}
+
+bool interrupts_is_handler_registered(uint8_t interrupt_index) {
+    return int_handlers[interrupt_index] != null;
+}
+
+// Returns an unused interrupt vector. Returns 0 if none found.
+uint8_t interrupts_get_empty_vector() {
+    for (uint8_t i = 33; i < UINT8_MAX; i++) {
+        if (i == 0x81) continue;
+
+        if (int_handlers[i] == null)
+            return i;
+    }
+
+    return 0;
 }

@@ -35,40 +35,38 @@ Returns the process id of the thread invoking the call.
 ## 8: int64_t sys_create_process(void \*content, size_t content_len, const char\* name, size_t name_len, pid_t *out_pid)
 Only reserved for the init process. Loads ELF executable from given memory and gives it the name provided. Returns negative values for errors and 0 for success. If success, the newly created process' pid is written to the `out_pid` parameter. If any of the pointers/ranges given (`content`, `name`, `out_pid`) are invalid, the function will return -1 with no changes.
 
-## 9: int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector)
-Configures how the kernel reacts to the specified interrupt at the given `vector`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_IRQCTL_REQUEST_INVALID** immediately. The only accepted range the parameter `vector` can be is within `(0, 15]` (where `0` is not allowed) and not `2`. If this range is not respected, the function will return **SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE** immediately. The vector index is relative to where the PIC was remapped to. For example, using a vector of 14 will not override the kernel's page fault handler.
-
-> *Developer's Note:* The range constraints were selected that way because that's all the PIC can offer. When APIC is implemented, this syscall will need revision.
+## 9: int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t irq)
+Configures how the kernel reacts to the specified interrupt request at the given `irq`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_IRQCTL_REQUEST_INVALID** immediately. The only accepted range the parameter `irq` starts from 0 and expands up to the amount of I/O APIC relocation entries on the system, which can be as low as (and usually is) 24. If this range is not respected, the function will return **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE** immediately.
 
 ### enum IRQCTLRequest
 
-1. **IRQCTL_SET (0x0)**: If the interrupt vector is in use by another process (or even the calling process), then returns **SYS_ERR_IRQCTL_VECTOR_IN_USE**. If not, the interrupt, if applicable, will be reserved to the calling process. If for any reason the kernel can't reserve this interrupt for the process, then the function will return -1. Being "reserved" doesn't mean that the interrupt control has been diverted to the process immediately. That functionality is reserved to **IRQCTL_AWAIT**. If the interrupt has been reserved successfully, then the function will return SYS_SUCCESS. If the process is terminated without unreserving the interrupt, the kernel will forcefully unreserve it. It is always recommended to keep track of your reserved interrupt vectors.
+1. **IRQCTL_SET (0x0)**: If the interrupt request is in use by another process (or even the calling process), then returns **SYS_ERR_IRQCTL_IRQ_IN_USE**. If not, the interrupt, if applicable, will be reserved to the calling process. If for any reason the kernel can't reserve this interrupt for the process, then the function will return -1. Being "reserved" doesn't mean that the interrupt control has been diverted to the process immediately. That functionality is reserved to **IRQCTL_AWAIT**. If the interrupt has been reserved successfully, then the function will return SYS_SUCCESS. If the process is terminated without unreserving the interrupt request, the kernel will forcefully unreserve it. It is always recommended to keep track of your reserved interrupt requests.
 
-2. **IRQCTL_AWAIT (0x1)**: Pauses thread execution until the interrupt is delivered. It is recommended to make this request on another thread created specifically for this interrupt. If this request is called on an unreserved interrupt vector, then the function will return **SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED** immediately. The function will return SYS_SUCCESS if thread execution had been paused and now is unpaused due to the interrupt being triggered. An interrupt can only be awaited once at a time within a process. It is also important to note that the EOI signal will be delivered just before resuming the invoking thread. *(important: see **IRQCTL_CANCEL**)*
+2. **IRQCTL_AWAIT (0x1)**: Pauses thread execution until the interrupt request is received. It is recommended to make this request on another thread created specifically for this interrupt. If this request is called on an unreserved interrupt request, then the function will return **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED** immediately. The function will return SYS_SUCCESS if thread execution had been paused and now is unpaused due to the interrupt being triggered. An interrupt can only be awaited once at a time within a process. It is also important to note that the EOI signal will be delivered just before resuming the invoking thread. *(important: see **IRQCTL_CANCEL**)*
 
-3. **IRQCTL_CANCEL (0x2)**: Forcefully terminates the await being performed for the specified interrupt vector. The IRQCTL_AWAIT call will return **SYS_ERR_IRQCTL_AWAIT_CANCELLED**. As IRQCTL_AWAIT blocks the invoking thread, naturally IRQCTL_CANCEL can only be called from another thread. If the requested vector is not reserved, **SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED** is returned. If the requested vector is not being actively awaited, **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED** is returned.
+3. **IRQCTL_CANCEL (0x2)**: Forcefully terminates the await being performed for the specified interrupt request. The IRQCTL_AWAIT call will return **SYS_ERR_IRQCTL_AWAIT_CANCELLED**. As IRQCTL_AWAIT blocks the invoking thread, naturally IRQCTL_CANCEL can only be called from another thread. If the requested interrupt request is not reserved, **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED** is returned. If the requested interrupt request is not being actively awaited, **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED** is returned.
 
-4. **IRQCTL_UNSET (0x3)**: Will unreserve the interrupt vector if reserved for and not being awaited by this process and return SYS_SUCCESS. If the vector is not reserved, returns **SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED**. If the vector is actively being awaited, then returns **SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING**.
+4. **IRQCTL_UNSET (0x3)**: Will unreserve the interrupt request if reserved for and not being awaited by this process and return SYS_SUCCESS. If the interrupt request is not reserved, returns **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED**. If the interrupt request is actively being awaited, then returns **SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING**.
 
 ### Error Codes
 
 1. **Generic (-1)**: Unspecified error.
 
-2. **SYS_ERR_IRQCTL_VECTOR_NOT_RESERVED (-2)**: Indicates that the requested vector has not been reserved for the calling process.
+2. **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED (-2)**: Indicates that the requested interrupt request has not been reserved for the calling process.
 
-3. **SYS_ERR_IRQCTL_AWAIT_DUPLICATE (-3)**: Indicates that the vector to be awaited is already being awaited in the process.
+3. **SYS_ERR_IRQCTL_AWAIT_DUPLICATE (-3)**: Indicates that the interrupt request to be awaited is already being awaited in the process.
 
 4. **SYS_ERR_IRQCTL_AWAIT_CANCELLED (-4)**: Indicates that the await ended prematurely because of a call using IRQCTL_CANCEL.
 
-5. **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED (-5)**: Indicates that the requested vector is currently not being awaited within the process.
+5. **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED (-5)**: Indicates that the interrupt request is currently not being awaited within the process.
 
-6. **SYS_ERR_IRQCTL_VECTOR_IN_USE (-6)**: Indicates that the requested vector is currently reserved for another process.
+6. **SYS_ERR_IRQCTL_IRQ_IN_USE (-6)**: Indicates that the requested interrupt request is currently reserved for another process.
 
-7. **SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE (-7)**: Indicates that the requested vector is not within the allowed limits.
+7. **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE (-7)**: Indicates that the requested interrupt request is not within the allowed limits.
 
 8. **SYS_ERR_IRQCTL_REQUEST_INVALID (-8)**: Indicates that the request code is unrecognized.
 
-9. **SYS_ERR_IRQCTL_UNSET_VECTOR_AWAITING (-9)**: Indicates that the requested vector cannot be unset because an IRQCTL_AWAIT operation is underway.
+9. **SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING (-9)**: Indicates that the requested interrupt request cannot be unset because an IRQCTL_AWAIT operation is underway.
 
 ## 10: uint32_t sys_port_io_in(uint16_t port, PORTIOSize size)
 

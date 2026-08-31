@@ -42,7 +42,9 @@ void kernel_main(BootInfo *boot_info) {
     fb_init(boot_info);
 
     acpi_init(boot_info);
+
     apic_init();
+    apic_timer_init();
 
     msr_ensure();
     syscalls_init();

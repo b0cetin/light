@@ -139,7 +139,7 @@ void start_first_user_process(BootInfo *boot_info) {
 
     ctx_switching_init(thread, create_idle_thread());
 
-    lapic_timer_init(32, 100);
+    lapic_timer_set(32, 100);
 
     kprintln("Switching to userspace.");
 

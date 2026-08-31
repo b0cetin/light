@@ -5,7 +5,7 @@
 #include "processes.h"
 
 int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t vector) {
-    if (vector > UINT8_MAX || !user_irq_is_vector_in_range(vector))
+    if (vector > UINT8_MAX || !user_irq_is_irq_in_range(vector))
         return SYS_ERR_IRQCTL_VECTOR_OUT_OF_RANGE;
 
     Thread *thread = ctx_switching_get_active_thread();

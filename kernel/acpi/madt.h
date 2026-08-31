@@ -38,6 +38,26 @@ typedef struct {
 
 typedef struct {
     MADTRecordHeader header;
+    uint8_t io_apic_id;
+    uint8_t reserved;
+    uint32_t io_apic_address;
+    uint32_t global_system_interrupt_base;
+} __attribute__ ((packed)) MADTIOAPICRecord;
+
+#define MADT_FLAGS_ACTIVE_HIGH_OVERRIDE 0b01
+#define MADT_FLAGS_ACTIVE_LOW_OVERRIDE 0b11
+#define MADT_FLAGS_ACTIVE_EDGE_TRIGGERED 0b0100
+#define MADT_FLAGS_ACTIVE_LEVEL_TRIGGERED 0b1100
+typedef struct {
+    MADTRecordHeader header;
+    uint8_t bus_source;
+    uint8_t irq_source;
+    uint32_t global_system_interrupt;
+    uint16_t flags;
+} __attribute__ ((packed)) MADTIOAPICInterruptSourceOverrideRecord;
+
+typedef struct {
+    MADTRecordHeader header;
     uint8_t reserved[2];
     uint64_t physical_address_override;
 } __attribute__ ((packed)) MADTLAPICAddressOverrideRecord;
