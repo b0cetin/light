@@ -76,6 +76,38 @@ void vmm_map(PML4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
     invlpg(virt); // Invalidate CPU caching.
 }
 
+void vmm_unmap(PML4 *pml4, uint64_t virt) {
+    uint64_t pml4_idx = (virt >> 39) & 0x1FF;
+    uint64_t pdpt_idx = (virt >> 30) & 0x1FF;
+    uint64_t pd_idx = (virt >> 21) & 0x1FF;
+    uint64_t pt_idx = (virt >> 12) & 0x1FF;
+
+    uint64_t *pdpt = get_next_level(pml4, pml4_idx, false);
+    if (pdpt == null) return;
+    if (pdpt[pdpt_idx] & PT_HUGE) PANIC("VMM: Reached 1GB huge page in PDPT during page traversal.");
+
+    uint64_t *pd = get_next_level(pdpt, pdpt_idx, false);
+    if (pd == null) return;
+    if (pd[pd_idx] & PT_HUGE) PANIC("VMM: Reached huge PD while traversing with normal mapping.");
+
+    uint64_t *pt = get_next_level(pd, pd_idx, false);
+    if (pt == null) return;
+
+    pt[pt_idx] = 0;
+
+    for (size_t i = 0; i < 512; i++)
+        if (pd[i] != 0) return;
+    
+    pmm_free_page(v2p(pd));
+
+    for (size_t i = 0; i < 512; i++)
+        if (pdpt[i] != 0) return;
+    
+    pmm_free_page(v2p(pdpt));
+
+    invlpg(virt); // Invalidate CPU caching.
+}
+
 void map_range_with_offset(PML4 *pml4, uint64_t start, uint64_t size, uint64_t offset, uint64_t flags) {
     uint64_t first_page = start & ~(0xFFFULL);
     uint64_t last_page = (start + size + 4095) & ~(0xFFFULL);

@@ -67,11 +67,11 @@ int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virt
 #define SYS_ERR_MMAP_CANNOT_FIND_SPACE -5
 #define SYS_ERR_MMAP_INVALID_ACCESS -6
 #define SYS_ERR_MMAP_OUT_OF_MEMORY -7
-typedef uint64_t MemoryAccessFlags;
+typedef uint64_t Sys_MemoryAccessFlags;
 #define MMAP_ACCESS_READ 0x1
 #define MMAP_ACCESS_WRITE 0x2
 #define MMAP_ACCESS_EXEC 0x4
-int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access);
+int64_t sys_memory_map(void **address, size_t length, Sys_MemoryAccessFlags access);
 
 #define SYS_ERR_MSHARE_INVALID_RANGE -2
 #define SYS_ERR_MSHARE_UNMAPPED -3

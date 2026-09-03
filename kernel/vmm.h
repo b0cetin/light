@@ -32,6 +32,7 @@ static inline uint64_t v2p(void *virt) {
 
 void vmm_map(PML4 *pml4, uint64_t virt, uint64_t phys, uint64_t flags);
 void vmm_kmap_mmio(uint64_t phys, uint64_t size);
+void vmm_unmap(PML4 *pml4, uint64_t virt);
 
 PML4 *vmm_create_user_address_space();
 void vmm_destroy_user_address_space(PML4 *plm4);

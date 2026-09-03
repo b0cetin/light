@@ -14,8 +14,8 @@ static bool has_init = false;
 static Thread *active_thread = null;
 static Thread *requested_next = null; // NOTE: Maybe consider a FIFO in the future?
 
-static Thread *pick_next_thread() {
-    if (active_thread == null) {
+Thread *ctx_switching_get_next_thread(Thread *current, bool allow_current) {
+    if (current == null) {
         for (Process *process = process_list(); process != null; process = process->next) {
             for (Thread *thread = process->threads; thread != null; thread = thread->next) {
                 if (thread->state == THREAD_READY) return thread;
@@ -25,12 +25,12 @@ static Thread *pick_next_thread() {
         return idle_thread;
     }
 
-    for (Thread *thread = active_thread->next; thread != null; thread = thread->next) {
+    for (Thread *thread = current->next; thread != null; thread = thread->next) {
         if (thread->state == THREAD_READY) return thread;
     }
 
-    if (active_thread->owner != null && active_thread->owner->next != null) {
-        for (Process *process = active_thread->owner->next; process != null; process = process->next) {
+    if (current->owner != null && current->owner->next != null) {
+        for (Process *process = current->owner->next; process != null; process = process->next) {
             for (Thread *thread = process->threads; thread != null; thread = thread->next) {
                 if (thread->state == THREAD_READY) return thread;
             }
@@ -39,18 +39,18 @@ static Thread *pick_next_thread() {
 
     for (Process *process = process_list(); process != null; process = process->next) {
         for (Thread *thread = process->threads; thread != null; thread = thread->next) {
-            if (thread == active_thread) continue;
+            if (thread == current) continue;
             if (thread->state == THREAD_READY) return thread;
         }
     }
 
-    if (active_thread->state == THREAD_READY) return active_thread;
+    if (allow_current && current->state == THREAD_READY) return current;
 
     return idle_thread;
 }
 
 static Thread *get_next_thread() {
-    if (requested_next == null) return pick_next_thread();
+    if (requested_next == null) return ctx_switching_get_next_thread(active_thread, true);
     else {
         Thread *next = requested_next;
         requested_next = null;
@@ -68,7 +68,7 @@ static uint64_t switch_core(Thread *next) {
     syscalls_set_kernel_stack(kernel_stack_top);
 
     if (active_thread->owner->is_ring_0) vmm_switch_to_kernel_address_space();
-    else vmm_switch_to_user_address_space(active_thread->owner->user_cr3);
+    else vmm_switch_to_user_address_space(active_thread->owner->user_vas.cpu_address_table);
 
     active_thread->state = THREAD_RUNNING;
 
@@ -95,10 +95,10 @@ uint64_t isr_context_switch(uint64_t rsp) {
 
 extern void switch_to_context_immediately(uint64_t rsp);
 // Switches to the next thread in queue without touching the previous.
-void ctx_switching_switch_next_destructive()
+void ctx_switching_switch_next_destructive(Thread *next)
 {
     kprintln("CTX: Switching destructively!");
-    switch_to_context_immediately(switch_core(get_next_thread()));
+    switch_to_context_immediately(switch_core(next));
 }
 
 // Switches to a specific thread immediately.

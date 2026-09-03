@@ -2,8 +2,8 @@
 #include "elf_loader.h"
 #include "debugging.h"
 #include "kernel_lib.h"
-#include "pmm.h"
 #include "types.h"
+#include "vas.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -146,7 +146,7 @@ bool check_elf_validity(void *elf, size_t length) {
 }
 
 // Returns the entry point according to the given user address space.
-void *load_elf(PML4 *user_address_space, void *content, size_t len) {
+void *load_elf(VAS *vas, void *content, size_t len) {
     if (!check_elf_validity(content, len)) return null;
 
     if (len < sizeof(ELFHeader)) return null;
@@ -154,10 +154,6 @@ void *load_elf(PML4 *user_address_space, void *content, size_t len) {
 
     if (len < header->program_header_table_offset) return null;
     ELFProgramHeader *program_header = (ELFProgramHeader*)((char*)content + header->program_header_table_offset);
-
-    // TODO: Keep track of pages allocated to this process.
-    // The PML4 already does that in some way, but a dedicated
-    // method would probably be a more ideal approach.
 
     if (len < (uint64_t) header->program_header_table_entry_size * header->program_header_table_entry_count
         + header->program_header_table_offset)
@@ -179,10 +175,11 @@ void *load_elf(PML4 *user_address_space, void *content, size_t len) {
             case ELF_PT_LOAD: {
                 if (program_header->mem_size == 0) continue;
 
-                uint64_t mapping_flags = PT_USER;
+                VASRegionPermission permissions = VMEM_PERM_NONE;
 
-                if (!(program_header->flags & PROGRAM_ENTRY_FLAG_EXECUTABLE)) mapping_flags |= PT_NX;
-                if (program_header->flags & PROGRAM_ENTRY_FLAG_WRITABLE) mapping_flags |= PT_RW;
+                if (program_header->flags & PROGRAM_ENTRY_FLAG_READABLE) permissions |= VMEM_PERM_READ;
+                if (program_header->flags & PROGRAM_ENTRY_FLAG_WRITABLE) permissions |= VMEM_PERM_WRITE;
+                if (program_header->flags & PROGRAM_ENTRY_FLAG_EXECUTABLE) permissions |= VMEM_PERM_EXEC;
 
                 uint64_t aligned_start = program_header->virtual_address & ~0xFFF;
                 uint64_t aligned_end = ((program_header->virtual_address + program_header->mem_size) + 0xFFF) & ~0xFFF;
@@ -202,20 +199,18 @@ void *load_elf(PML4 *user_address_space, void *content, size_t len) {
                 if (program_header->file_size > program_header->mem_size)
                     return null; // File size can never exceed memory size
 
+                VirtualMemoryObject *memory = vmem_create_allocation(num_pages, true);
+
                 for (uint64_t i = 0; i < num_pages; i++) {
-                    uint64_t physical_address = pmm_alloc_page();
-                    uint64_t address = aligned_start + i * PAGE_SIZE;
+                    void *address = p2v(vmem_get_phys_page(memory, i));
 
-                    vmm_map(user_address_space, address, physical_address, mapping_flags);
-                    memzero(p2v(physical_address), PAGE_SIZE);
-
-                    kprintln("ELF: Allocating page from %lx, mapped to %lx", address, aligned_start + i * PAGE_SIZE);
+                    kprintln("ELF: Allocating physical page from %lx", v2p(address));
 
                     if (bytes_copied < program_header->file_size) {
                         uint64_t dest_offset = i == 0 ? page_offset : 0;
                         uint64_t amount_to_copy = PAGE_SIZE - dest_offset;
 
-                        memcpy(p2v(physical_address) + dest_offset, (uint8_t*) ((char*)content + program_header->data_offset) + bytes_copied, amount_to_copy);
+                        memcpy(((uint8_t*) address) + dest_offset, (uint8_t*) ((char*)content + program_header->data_offset) + bytes_copied, amount_to_copy);
                         
                         bytes_copied += amount_to_copy;
                     }
@@ -223,6 +218,8 @@ void *load_elf(PML4 *user_address_space, void *content, size_t len) {
                         kprintln("ELF: No data on file to copy.");
                     }
                 }
+
+                vas_add_region(vas, aligned_start, permissions, VREGION_REASON_EXECUTABLE, memory);
 
                 break;
             }

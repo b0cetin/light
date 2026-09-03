@@ -9,6 +9,7 @@
 #include "user_interrupts.h"
 #include "userspace.h"
 #include "utils/hashtables/u64toaddr_hashtable.h"
+#include "vas.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -60,17 +61,15 @@ static Process *process_create_core(char *name, uint64_t pid) {
     return new_process;
 }
 
-Process *process_create(void *entry, PML4 *pml4, char *name) {
+Process *process_create(char *name) {
     Process *new_process = process_create_core(name, next_pid++);
 
-    new_process->user_cr3 = pml4;
     new_process->is_ring_0 = false;
 
-    new_process->user_vas.next_stack_top = PROCESS_VAS_STACK_REGION_TOP;
+    new_process->user_vas.is_kernel = false;
+    vas_init(&new_process->user_vas);
 
-    new_process->state = PROCESS_ALIVE;
-
-    process_create_thread(entry, 0, new_process);
+    new_process->state = PROCESS_STARTING;
 
     return new_process;
 }
@@ -80,29 +79,31 @@ Process *process_create(void *entry, PML4 *pml4, char *name) {
 // If `pid` argument is NULL, then a PID will be chosen automatically.
 // If not, the requested PID will be used. WARNING: PID CLASHES WILL PANIC
 // THE SYSTEM.
-Process *process_create_kernel(void *entry, char *name, uint64_t *requested_pid) {
+Process *process_create_kernel(char *name, uint64_t *requested_pid) { // FIXME: *All* processes need VAS.
     uint64_t pid;
 
     if (requested_pid != null) {
         pid = *requested_pid;
 
         if (ht_lookup(pid_to_process, pid, null))
-            PANIC("process_create_kernel called with requested pid %ld, but it clashes! (entry: %lx, name: %s)", pid, (uint64_t) entry, name);
+            PANIC("process_create_kernel called with requested pid %ld, but it clashes! (name: %s)", pid, name);
     }
     else pid = next_pid++;
 
     Process *new_process = process_create_core(name, pid);
 
-    new_process->user_cr3 = null;
     new_process->is_ring_0 = true;
 
-    new_process->state = PROCESS_ALIVE;
+    new_process->state = PROCESS_STARTING;
 
     kprintln("PROC: This process runs in kernel space.");
 
-    process_create_thread(entry, 0, new_process);
-
     return new_process;
+}
+
+void process_start(Process* process, void *entry) {
+    process_create_thread(entry, 0, process);
+    process->state = PROCESS_ALIVE;
 }
 
 static Thread *allocate_thread(Process *process) {
@@ -137,15 +138,18 @@ Thread *process_create_thread(void *entry, uint64_t arg0, Process *process) {
 
     uint64_t user_stack_top = 0;
     if (!is_ring_0) {
-        thread->user_stack_phys_base = pmm_alloc_page();
-        thread->user_stack_size = PAGE_SIZE;
-        thread->user_stack_mapped_base = (void*) process->user_vas.next_stack_top;
+        const size_t stack_page_count = 1;
+        const size_t stack_size = stack_page_count * PAGE_SIZE;
 
-        process->user_vas.next_stack_top -= thread->user_stack_size + PAGE_SIZE; // Stack overflow guards by adding unmapped page in between.
+        VirtualMemoryObject *stack_memory = vmem_create_allocation(stack_page_count, true);
 
-        user_stack_top = ((uint64_t) thread->user_stack_mapped_base) + thread->user_stack_size;
+        process->user_vas.next_stack_top -= stack_size + PAGE_SIZE; // Stack overflow guards by adding unmapped page in between.
 
-        vmm_map(process->user_cr3, (uint64_t) thread->user_stack_mapped_base, thread->user_stack_phys_base, PT_USER | PT_RW | PT_NX);
+        uintptr_t mapped_base = (uintptr_t) process->user_vas.next_stack_top;
+        user_stack_top = mapped_base + stack_size;
+
+        thread->user_stack = vas_add_region(&process->user_vas, mapped_base,
+            VMEM_PERM_READ | VMEM_PERM_WRITE, VREGION_REASON_STACK, stack_memory);
     }
 
     uint64_t *sp = (uint64_t *)(thread->kernel_stack_base + thread->kernel_stack_size);
@@ -180,7 +184,8 @@ Thread *process_create_thread(void *entry, uint64_t arg0, Process *process) {
     if (is_ring_0)
         kprintln("PROC: Created thread %ld for process %ld, kernel stack location: %lx.", thread->local_id, process->pid, thread->kernel_stack_base);
     else
-        kprintln("PROC: Created thread %ld for process %ld, user stack location: %lx / %lx.", thread->local_id, process->pid, thread->user_stack_phys_base, (uint64_t) thread->user_stack_mapped_base);
+        kprintln("PROC: Created thread %ld for process %ld, user stack location: %lx / %lx.", thread->local_id, process->pid,
+            vmem_get_phys_page(thread->user_stack->backing, 0), (uint64_t) thread->user_stack->virt_start);
 
     return thread;
 }
@@ -215,14 +220,12 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     vmm_switch_to_kernel_address_space();
 
     pmm_free_page(v2p(thread->kernel_stack_base));
-    pmm_free_page(thread->user_stack_phys_base);
+    if (thread->owner->is_ring_0) vas_remove_region(&thread->owner->user_vas, thread->user_stack);
 
     thread->kernel_stack_base = 0;
     thread->kernel_rsp = 0;
     thread->kernel_stack_size = 0;
-    thread->user_stack_phys_base = 0;
-    thread->user_stack_mapped_base = 0;
-    thread->user_stack_size = 0;
+    thread->user_stack = null;
 
     process_rpc_receive_cancel(thread);
     // NOTE: This is here because there is a number in process keeping track of the amount of receivers.
@@ -266,9 +269,9 @@ static void teardown_thread(Thread* thread, uint64_t result) {
 }
 
 static void teardown_thread_with_switch(Thread* thread, uint64_t result) {
+    Thread *next = ctx_switching_get_next_thread(thread, false);
     teardown_thread(thread, result);
-
-    ctx_switching_switch_next_destructive();
+    ctx_switching_switch_next_destructive(next);
 }
 
 static void teardown_process_with_switch(Process *process, int64_t status) {
@@ -280,20 +283,17 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
 
     process->state = PROCESS_TERMINATING;
 
-    for (Thread *thread = process->threads; thread != null; thread = thread->next) {
-        teardown_thread(thread, -1);
+    while (process->threads != null) {
+        teardown_thread(process->threads, -1);
     }
 
     user_irq_force_unreserve_all(process);
 
-    // FIXME: At this stage, you'd also free all memory allocated to the process,
-    // but that's not a thing right now so I'll let this memory leak pass.
-
     kfree(process->name);
     process->name = null;
 
-    vmm_destroy_user_address_space(process->user_cr3);
-    process->user_cr3 = null;
+    if (!process->is_ring_0)
+        vas_destroy(&process->user_vas);
 
     if (process->prev != null) process->prev->next = process->next;
     if (process->next != null) process->next->prev = process->prev;
@@ -306,7 +306,8 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
 
     if (pid == PROCESS_INIT_PID || pid == PROCESS_IDLE_PID) PANIC("Protected process %ld has been terminated!", pid);
 
-    ctx_switching_switch_next_destructive();
+    Thread *next = ctx_switching_get_next_thread(null, false); // FIXME: Is there really no better option?
+    ctx_switching_switch_next_destructive(next);
 }
 
 extern void processes_exit_trampoline(void *function, uint64_t arg1, uint64_t arg2);

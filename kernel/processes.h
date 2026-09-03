@@ -2,6 +2,7 @@
 #pragma once
 
 #include "types.h"
+#include "vas.h"
 #include "vmm.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -26,9 +27,7 @@ typedef struct Thread {
     uint64_t kernel_stack_size;
 
     // User registers
-    uint64_t user_stack_phys_base;
-    void *user_stack_mapped_base;
-    uint64_t user_stack_size;
+    VASRegion *user_stack;
 
     // Metadata
     ThreadState state;
@@ -47,15 +46,12 @@ typedef struct Thread {
     struct Thread *next;
 } Thread;
 
-#define PROCESS_VAS_STACK_REGION_TOP 0x0000700000000000ULL
-typedef struct {
-    uint64_t next_stack_top;
-} ProcessVASState;
-
 typedef struct Process {
     // Processor
-    PML4* user_cr3;
     bool is_ring_0;
+
+    // Memory
+    VAS user_vas;
 
     // Metadata
     ProcessState state;
@@ -66,7 +62,6 @@ typedef struct Process {
     struct Thread *threads;
     size_t thread_count;
     uint64_t next_thread_id;
-    ProcessVASState user_vas;
 
     // RPC
     uint64_t threads_receiving_rpcs_count;
@@ -78,8 +73,10 @@ typedef struct Process {
 
 void process_init();
 
-Process *process_create(void *entry, PML4 *plm4, char *name);
-Process *process_create_kernel(void *entry, char *name, uint64_t *requested_pid);
+Process *process_create(char *name);
+Process *process_create_kernel(char *name, uint64_t *requested_pid);
+void process_start(Process* process, void *entry);
+
 Thread *process_create_thread(void *entry, uint64_t arg0, Process *process);
 
 bool process_begin_thread_teardown(Thread *thread, uint64_t result);

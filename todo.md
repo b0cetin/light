@@ -12,3 +12,7 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [ ] `sys_map_mmio` is unsafe. Very.
 - [ ] A capability system (or rather any security enforcement system) is needed.
 - [ ] A global error ID system is needed.
+- [ ] ACPI will require custom memory addresses for kernel processes. (And yes, ACPI needs to be a kernel-space process.)
+
+Known bug:
+- [ ] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)

@@ -65,9 +65,9 @@ int main() {
         println("Fading to black...");
         fade_to_black(buffer, size);
         println("Faded.");
-    }
 
-    memset(buffer, 0x50, size);
+        memset(buffer, 0x50, size);
+    }
 
     // println("Testing memory sharing.");
     // println("Mapping first.");

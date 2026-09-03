@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "vmm.h"
+#include "vas.h"
 #include <stddef.h>
 
-void *load_elf(PML4 *user_address_space, void *content, size_t len);
+void *load_elf(VAS *vas, void *content, size_t len);

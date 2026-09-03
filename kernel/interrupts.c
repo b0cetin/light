@@ -1,5 +1,6 @@
 
 #include "interrupts.h"
+#include "apic.h"
 #include "cpu_exceptions.h"
 #include "debugging.h"
 #include "types.h"
@@ -26,6 +27,7 @@ void isr_handler(InterruptRegisters *regs) {
     }
 
     kprintln("INT: No handler registered for interrupt index: %d", regs->interrupt_number);
+    lapic_end_of_interrupt();
 }
 
 void register_interrupt_handler(uint8_t interrupt_index, void (*int_handler)(InterruptRegisters *)) {

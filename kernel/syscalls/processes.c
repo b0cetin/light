@@ -44,22 +44,22 @@ int64_t sys_create_process(void *content, size_t content_len, const char* name, 
         return -1;
     }
 
-    PML4* address_space = vmm_create_user_address_space();
-
-    void *entry_point = load_elf(address_space, content, content_len);
-    if (entry_point == null) {
-        kprintln("SYSCALLS: sys_create_process: Failure loading ELF file.");
-        vmm_destroy_user_address_space(address_space); // FIXME: Memory leak: Clean up ELF file.
-        return -1;
-    }
-
     char *c_name = kmalloc(name_len + 1);
     memcpy(c_name, name, name_len);
     c_name[name_len] = '\0';
 
-    Process *process;
+    Process *process = process_create(c_name);
 
-    process = process_create(entry_point, address_space, c_name);
+    kfree(c_name);
+
+    void *entry_point = load_elf(&process->user_vas, content, content_len);
+    if (entry_point == null) {
+        kprintln("SYSCALLS: sys_create_process: Failure loading ELF file.");
+        // FIXME: Memory leak: Clean up ELF file.
+        return -1;
+    }
+
+    process_start(process, entry_point);
 
     *out_pid = process->pid;
     return 0;

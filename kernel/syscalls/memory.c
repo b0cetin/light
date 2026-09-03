@@ -1,4 +1,5 @@
 
+#include "allocator.h"
 #include "context_switching.h"
 #include "debugging.h"
 #include "defined_syscalls.h"
@@ -7,6 +8,7 @@
 #include "shared_memory.h"
 #include "syscalls/utils.h"
 #include "types.h"
+#include "vas.h"
 #include "vmm.h"
 #include <stdint.h>
 
@@ -34,60 +36,36 @@ int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virt
         return SYS_ERR_MAP_MMIO_INVALID_RANGE;
     
     uint64_t end;
-    if (__builtin_add_overflow(physical_page_base, size, &end)) // A possible attack target.
+    if (__builtin_add_overflow(physical_page_base, size, &end) || __builtin_add_overflow(target_virt, size, &end)) // A possible attack target.
         return SYS_ERR_MAP_MMIO_INVALID_RANGE;
 
     Process *process = ctx_switching_get_active_thread()->owner;
     if (process->is_ring_0) return -1; // Kernel-space processes don't feature their own address space.
 
     if (target_virt == 0) {
-        uint64_t found_pages = 0;
+        target_virt = vas_get_unused_space(&process->user_vas, page_count);
 
-        uint64_t addr;
-        for (addr = VAS_SEARCH_START; found_pages < page_count && addr < VAS_SEARCH_END; addr += PAGE_SIZE) {
-            if (!vmm_get_page_info(process->user_cr3, addr, null, null))
-            {
-                found_pages++;
-
-                if (found_pages == page_count) {
-                    // Calculate the starting address of this contiguous block
-                    target_virt = addr - (page_count - 1) * PAGE_SIZE;
-                    break;
-                }
-            }
-            else {
-                found_pages = 0;
-            }
-        }
-
-        if (found_pages != page_count)
+        if (target_virt == 0)
             return SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE;
     }
     else {
         if (!is_valid_mappable_user_range(target_virt, size))
             return SYS_ERR_MAP_MMIO_INVALID_RANGE;
 
-        for (uint64_t i = 0; i < page_count; i++) {
-            uint64_t virt = target_virt + i * PAGE_SIZE;
-
-            if (vmm_get_page_info(process->user_cr3, virt, null, null))
-                return SYS_ERR_MAP_MMIO_USED;
-        }
+        VASRegion *conflicting_region = null;
+        if (!vas_get_memory_region(&process->user_vas, target_virt, target_virt + size, &conflicting_region) ||
+                conflicting_region != null)
+            return SYS_ERR_MAP_MMIO_USED;
     }
 
-    for (uint64_t i = 0; i < page_count; i++) {
-        uint64_t virt = target_virt + i * PAGE_SIZE;
-        uint64_t phys = physical_page_base + i * PAGE_SIZE;
-
-        vmm_map(process->user_cr3, virt, phys, PT_USER | PT_PWT | PT_PCD | PT_NX | PT_RW);
-    }
+    VirtualMemoryObject *mmio = vmem_create_mmio(physical_page_base, page_count);
+    vas_add_region(&process->user_vas, target_virt, VMEM_PERM_RW, VREGION_REASON_USER_REQUEST, mmio);
 
     *virtual_address = target_virt;
-
     return SYS_SUCCESS;
 }
 
-int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) {
+int64_t sys_memory_map(void **address, size_t length, Sys_MemoryAccessFlags access) {
     if (!is_valid_mapped_user_range((uintptr_t) address, sizeof(uintptr_t)))
         return -1;
 
@@ -114,58 +92,34 @@ int64_t sys_memory_map(void **address, size_t length, MemoryAccessFlags access) 
     if (process->is_ring_0) return -1; // Kernel-space processes don't feature their own address space.
 
     if (target_virt == 0) {
-        uint64_t found_pages = 0;
+        target_virt = vas_get_unused_space(&process->user_vas, page_count);
 
-        uint64_t addr;
-        for (addr = VAS_SEARCH_START; found_pages < page_count && addr < VAS_SEARCH_END; addr += PAGE_SIZE) {
-            if (!vmm_get_page_info(process->user_cr3, addr, null, null))
-            {
-                found_pages++;
-
-                if (found_pages == page_count) {
-                    // Calculate the starting address of this contiguous block
-                    target_virt = addr - (page_count - 1) * PAGE_SIZE;
-                    break;
-                }
-            }
-            else {
-                found_pages = 0;
-            }
-        }
-
-        if (found_pages != page_count)
+        if (target_virt == 0)
             return SYS_ERR_MMAP_CANNOT_FIND_SPACE;
     }
     else {
         if (!is_valid_mappable_user_range(target_virt, length))
             return SYS_ERR_MMAP_INVALID_RANGE;
 
-        for (uint64_t i = 0; i < page_count; i++) {
-            uint64_t virt = target_virt + i * PAGE_SIZE;
-
-            if (vmm_get_page_info(process->user_cr3, virt, null, null))
-                return SYS_ERR_MMAP_USED;
-        }
+        VASRegion *conflicting_region = null;
+        if (!vas_get_memory_region(&process->user_vas, target_virt, target_virt + length, &conflicting_region) ||
+                conflicting_region != null)
+            return SYS_ERR_MMAP_USED;
     }
 
-    uint64_t vmm_flags = PT_USER;
+    VirtualMemoryObject *object = vmem_create_allocation(page_count, true);
+    VASRegionPermission permission = VMEM_PERM_NONE;
 
-    if (!(access & MMAP_ACCESS_READ)) return SYS_ERR_MMAP_INVALID_ACCESS; // FIXME
-    if (access & MMAP_ACCESS_WRITE) vmm_flags |= PT_RW;
-    if (!(access & MMAP_ACCESS_EXEC)) vmm_flags |= PT_NX;
-
-    if (pmm_get_free_page_count() <= page_count)
+    if (object == null)
         return SYS_ERR_MMAP_OUT_OF_MEMORY;
 
-    for (uint64_t i = 0; i < page_count; i++) {
-        uint64_t virt = target_virt + i * PAGE_SIZE;
-        uint64_t phys = pmm_alloc_page();
+    if (access & MMAP_ACCESS_READ) permission |= VMEM_PERM_READ;
+    if (access & MMAP_ACCESS_WRITE) permission |= VMEM_PERM_WRITE;
+    if (access & MMAP_ACCESS_EXEC) permission |= VMEM_PERM_EXEC;
 
-        vmm_map(process->user_cr3, virt, phys, vmm_flags);
-    }
+    vas_add_region(&process->user_vas, target_virt, permission, VREGION_REASON_USER_REQUEST, object);
 
     *address = (void*) target_virt;
-
     return SYS_SUCCESS;
 }
 

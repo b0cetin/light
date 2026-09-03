@@ -80,17 +80,14 @@ void user_irq_reserve(uint8_t irq, Process *process) {
         irq, reservation->assigned_vector, process->pid);
 }
 
-void user_irq_unreserve(uint8_t irq, Process *process) {
+void irq_unreserve_internal(uint8_t irq) {
     UserIRQReservation *reservation = user_irq_get_reservation(irq);
 
     if (reservation == null)
-        PANIC("user_irq_unreserve called on unreserved IRQ.");
+        PANIC("irq_unreserve_internal called on unreserved IRQ.");
 
     if (reservation->awaiter != null)
-        PANIC("user_irq_unreserve called on awaited user IRQ.");
-
-    if (reservation->reserver != process)
-        PANIC("user_irq_unreserve called for process that didn't reserve it.");
+        PANIC("irq_unreserve_internal called on awaited user IRQ.");
 
     ioapic_mask(reservation->assigned_vector);
     interrupts_remove_interrupt_handler(reservation->assigned_vector, user_irq_interrupt_handler);
@@ -101,6 +98,18 @@ void user_irq_unreserve(uint8_t irq, Process *process) {
     kfree(reservation);
 
     kprintln("USER_IRQ: Vector %d is now unreserved.", irq);
+}
+
+void user_irq_unreserve(uint8_t irq, Process *process) {
+    UserIRQReservation *reservation = user_irq_get_reservation(irq);
+
+    if (reservation == null)
+        PANIC("user_irq_unreserve called on unreserved IRQ.");
+
+    if (reservation->reserver != process)
+        PANIC("user_irq_unreserve called for process that didn't reserve it.");
+
+    irq_unreserve_internal(irq);
 }
 
 // If the thread is currently active, do not forget to context switch away from it.
@@ -149,7 +158,8 @@ void user_irq_cancel(uint8_t irq, Process *process) {
 }
 
 void user_irq_force_unreserve_all(Process *process) {
-    uint8_t unreserved_count = 0;
+    uint8_t matching_irqs[UINT8_MAX];
+    uint8_t unreserve_count = 0;
 
     for(size_t i = 0; i < reservations->capacity; i++) {
         Node *current = reservations->bucket[i];
@@ -157,17 +167,20 @@ void user_irq_force_unreserve_all(Process *process) {
         while (current != null) {
             UserIRQReservation *reservation = (UserIRQReservation*) current->address;
 
-            if (reservation->reserver == process) { // NOTE: This moves from assumption that the table size doesn't shrink when removing.
-                user_irq_unreserve(reservation->irq, process);
-                unreserved_count++;
+            if (reservation->reserver == process) {
+                matching_irqs[unreserve_count] = reservation->irq;
+                unreserve_count++;
             }
 
             current = current->next;
         }
     }
 
-    if (unreserved_count > 0) {
+    for (uint8_t i = 0; i < unreserve_count; i++)
+        irq_unreserve_internal(matching_irqs[i]);
+
+    if (unreserve_count > 0) {
         kprintln("USER_IRQ: Unreserved all reservations of process %ld. There were %d.",
-            process->pid, unreserved_count);
+            process->pid, unreserve_count);
     }
 }

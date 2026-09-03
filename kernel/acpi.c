@@ -59,7 +59,7 @@ void acpi_init(BootInfo *boot_info) {
     kprintln("ACPI: XSDT declared at %lx.", xsdt);
 }
 
-bool checksum(ACPISDTHeader *tableHeader)
+static bool checksum(ACPISDTHeader *tableHeader)
 {
     uint8_t sum = 0;
 

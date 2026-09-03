@@ -15,8 +15,8 @@ bool is_valid_mapped_user_range(uintptr_t ptr, size_t size) {
     uint64_t end_page = (ptr + size) & PT_ADDRESS_MASK;
     size_t page_count = (end_page - start_page) / PAGE_SIZE + 1;
     
-    for (size_t i = 0; i < page_count; i++) {
-        if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->user_cr3, start_page + i * PAGE_SIZE, null, &flags))
+    for (size_t i = 0; i < page_count; i++) { // FIXME: Needs to use VAS
+        if (!vmm_get_page_info(ctx_switching_get_active_thread()->owner->user_vas.cpu_address_table, start_page + i * PAGE_SIZE, null, &flags))
             return false;
     }
 
