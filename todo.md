@@ -2,7 +2,7 @@
 The kernel is desperately lacking some features/implementations/bugfixes as of with its current state.
 
 - [x] Hash tables. `processes.c` and `shared_memory.c` need them.
-- [ ] Userspace process VAS tracking.
+- [x] Userspace process VAS tracking.
 - [x] VMM needs a reframing for CR3 management (see `context_switching.c`)
 - [x] APIC support. We're still using the PIC and the PIT.
 - [x] `is_valid_mapped_user_range` still needs to check for range.
@@ -15,4 +15,4 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [ ] ACPI will require custom memory addresses for kernel processes. (And yes, ACPI needs to be a kernel-space process.)
 
 Known bug:
-- [ ] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)
+- [x] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)

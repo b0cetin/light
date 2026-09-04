@@ -79,7 +79,7 @@ void process_start(Process* process, void *entry);
 
 Thread *process_create_thread(void *entry, uint64_t arg0, Process *process);
 
-bool process_begin_thread_teardown(Thread *thread, uint64_t result);
+void process_begin_thread_teardown(Thread *thread, uint64_t result);
 bool process_begin_process_teardown(Process* process, int64_t status);
 
 Process *process_list();

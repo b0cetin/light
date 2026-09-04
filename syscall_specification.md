@@ -170,7 +170,29 @@ A 64-bit bitmask field defining the memory protection info for the mapping.
 
 5. **SYS_ERR_MMAP_OUT_OF_MEMORY (-7)**: The system doesn't have enough free memory to complete this operation.
 
-## 19: **RESERVED for int64_t sys_memory_unmap(void \*address, size_t length)**
+## 19: int64_t sys_memory_unmap(void \*address, size_t length, MemoryUnmapFlags flags)
+Looks at the range specified and unmaps all the memory mapped inside. This can include multiple pages. This function cannot divide memory regions. This call can only free mappings mapped per the process' request prior, as such, a process cannot nuke their address space with this call. This function does allow unaligned values. Unmapped regions are skipped.
+
+### Type-alias MemoryUnmapFlags: uint64_t
+A 64-bit bitmask field defining additional functionality for the unmapping.
+
+2. **MUNMAP_FLAGS_INCLUSIVE (1):** The function will unmap any region that intersects with the range, not just the ones fully covered.
+
+### Success Codes
+
+Any return code above or equal to 0 is success, and means at least one region was unmapped. A 63-bit (last bit reserved for two's complement) bitmask is returned to report additional information about the operation.
+
+2. **SYS_MUNMAP_SUCCESS_NOOP (1):** While there were no errors, no regions could be found and unmapped during the call, making the call no-op.
+
+### Error Codes
+
+Any negative return code is an error.
+
+1. **Generic (-1):** Unspecified error.
+
+2. **SYS_ERR_MUNMAP_INVALID_FLAGS (-2):** `flags` features unknown/unsupported flags.
+
+3. **SYS_ERR_MUNMAP_INVALID_RANGE (-3):** The supplied range is invalid (e.g. the range yields an integer overflow, length is zero.)
 
 ## 20: int64_t sys_memory_share(void \*address, size_t length, SharedMemoryID *out_id)
 Marks the region of memory as shared and outputs the newly shared memory ID. Arguments must be aligned to the system's page size. If `out_id` is invalid, returns -1 immediately. The memory region inputted must be mapped beforehand with `sys_memory_map`. The shared memory will not be destroyed until all processes referencing it are terminated or have unmapped it. Performing this syscall back to back with the same range will output the same `SharedMemoryID`.

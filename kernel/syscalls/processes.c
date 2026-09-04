@@ -55,7 +55,7 @@ int64_t sys_create_process(void *content, size_t content_len, const char* name, 
     void *entry_point = load_elf(&process->user_vas, content, content_len);
     if (entry_point == null) {
         kprintln("SYSCALLS: sys_create_process: Failure loading ELF file.");
-        // FIXME: Memory leak: Clean up ELF file.
+        process_begin_process_teardown(process, -1);
         return -1;
     }
 

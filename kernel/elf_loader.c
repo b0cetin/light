@@ -145,7 +145,7 @@ bool check_elf_validity(void *elf, size_t length) {
     return true;
 }
 
-// Returns the entry point according to the given user address space.
+// Returns the entry point according to the given user address space. This function will not clean up any allocation if it halts midway.
 void *load_elf(VAS *vas, void *content, size_t len) {
     if (!check_elf_validity(content, len)) return null;
 
@@ -167,10 +167,10 @@ void *load_elf(VAS *vas, void *content, size_t len) {
             case ELF_PT_NULL: continue;
             case ELF_PT_NOTE: continue;
             case ELF_PT_INTERPRET:
-                kprintln("ELF: Program table entry PT_INTERPRET found. Skipping...");
-                continue;
+                kprintln("ELF: Program table entry PT_INTERPRET. Currently not supported.");
+                return null;
             case ELF_PT_DYNAMIC:
-                PANIC("Elf program requests dynamic linking. Currently not supported. This is a panic and not a warning because I haven't implemented cleaning up on error.");
+                kprintln("ELF: Program requires dynamic linking. Currently not supported.");
                 return null;
             case ELF_PT_LOAD: {
                 if (program_header->mem_size == 0) continue;

@@ -51,6 +51,7 @@ typedef enum : uint32_t {
     VMEM_PERM_EXEC = 1 << 2,
 
     VMEM_PERM_RW = (VMEM_PERM_READ | VMEM_PERM_WRITE),
+    VMEM_PERM_RX = (VMEM_PERM_READ | VMEM_PERM_EXEC),
     VMEM_PERM_ALL = (VMEM_PERM_RW | VMEM_PERM_EXEC),
 } VASRegionPermission;
 

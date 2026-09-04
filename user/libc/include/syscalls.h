@@ -123,6 +123,15 @@ static inline int64_t sys_memory_map(void **address, size_t length, MemoryAccess
     return syscall(18, (uint64_t) address, length, access, 0, 0, 0).rax;
 }
 
+#define SYS_ERR_MUNMAP_INVALID_FLAGS -2
+#define SYS_ERR_MUNMAP_INVALID_RANGE -3
+#define SYS_MUNMAP_SUCCESS_NOOP 1
+typedef uint64_t MemoryUnmapFlags;
+#define MUNMAP_FLAGS_INCLUSIVE 1
+static inline int64_t sys_memory_unmap(void *address, size_t length, MemoryUnmapFlags flags) {
+    return syscall(19, (uint64_t) address, length, flags, 0, 0, 0).rax;
+}
+
 #define SYS_ERR_MSHARE_INVALID_RANGE -2
 #define SYS_ERR_MSHARE_UNMAPPED -3
 #define SYS_ERR_MSHARE_ARG_UNALIGNED -4

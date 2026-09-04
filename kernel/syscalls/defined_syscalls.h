@@ -73,6 +73,13 @@ typedef uint64_t Sys_MemoryAccessFlags;
 #define MMAP_ACCESS_EXEC 0x4
 int64_t sys_memory_map(void **address, size_t length, Sys_MemoryAccessFlags access);
 
+#define SYS_ERR_MUNMAP_INVALID_FLAGS -2
+#define SYS_ERR_MUNMAP_INVALID_RANGE -3
+#define SYS_MUNMAP_SUCCESS_NOOP 1
+typedef uint64_t Sys_MemoryUnmapFlags;
+#define MUNMAP_FLAGS_INCLUSIVE 1
+int64_t sys_memory_unmap(void *address, size_t length, Sys_MemoryUnmapFlags flags);
+
 #define SYS_ERR_MSHARE_INVALID_RANGE -2
 #define SYS_ERR_MSHARE_UNMAPPED -3
 #define SYS_ERR_MSHARE_ARG_UNALIGNED -4

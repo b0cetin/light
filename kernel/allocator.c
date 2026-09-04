@@ -27,52 +27,52 @@ BlockHeader *first = null;
 uint64_t heap_size = 0;
 uint64_t heap_capacity = 0;
 
-void test() {
-    kprintln("TEST: Printing heap memory... (only first 128 bytes)");
+// void test() {
+//     kprintln("TEST: Printing heap memory... (only first 128 bytes)");
 
-    for (int i = 0; i < 16; i++) {
-        uint64_t *ptr = ((uint64_t*) first) + i;
-        kernel_printf("%lx", *ptr);
-    }
+//     for (int i = 0; i < 16; i++) {
+//         uint64_t *ptr = ((uint64_t*) first) + i;
+//         kernel_printf("%lx", *ptr);
+//     }
 
-    size_t test_allocation_size = 5;
+//     size_t test_allocation_size = 5;
 
-    kprintln("\nTEST: Allocting %ld bytes.", test_allocation_size);
+//     kprintln("\nTEST: Allocting %ld bytes.", test_allocation_size);
 
-    void *test_allocation = kmalloc(test_allocation_size);
+//     void *test_allocation = kmalloc(test_allocation_size);
 
-    kprintln("TEST: memsetting the allocation to 0xFF.");
+//     kprintln("TEST: memsetting the allocation to 0xFF.");
 
-    memset(test_allocation, 0xFF, test_allocation_size);
+//     memset(test_allocation, 0xFF, test_allocation_size);
 
-    kprintln("TEST: Heap size: %ld bytes, heap capacity: %ld bytes", heap_size, heap_capacity);
+//     kprintln("TEST: Heap size: %ld bytes, heap capacity: %ld bytes", heap_size, heap_capacity);
 
-    kprintln("TEST: Printing heap memory... (only first 128 bytes)");
+//     kprintln("TEST: Printing heap memory... (only first 128 bytes)");
 
-    for (int i = 0; i < 16; i++) {
-        uint64_t *ptr = ((uint64_t*) first) + i;
-        kernel_printf("%lx", *ptr);
-    }
+//     for (int i = 0; i < 16; i++) {
+//         uint64_t *ptr = ((uint64_t*) first) + i;
+//         kernel_printf("%lx", *ptr);
+//     }
 
-    // kernel_println("TEST: Coalescing discard test...");
+//     // kernel_println("TEST: Coalescing discard test...");
 
-    // (((BlockHeader*) test_allocation) - 1)->next += 0xFF; // TEST SUCCESS
+//     // (((BlockHeader*) test_allocation) - 1)->next += 0xFF; // TEST SUCCESS
 
-    kprintln("\nTEST: Freeing allocation...");
+//     kprintln("\nTEST: Freeing allocation...");
 
-    kfree(test_allocation);
+//     kfree(test_allocation);
 
-    kprintln("TEST: Heap size: %ld bytes, heap capacity: %ld bytes", heap_size, heap_capacity);
+//     kprintln("TEST: Heap size: %ld bytes, heap capacity: %ld bytes", heap_size, heap_capacity);
 
-    kprintln("TEST: Printing heap memory... (only first 128 bytes)");
+//     kprintln("TEST: Printing heap memory... (only first 128 bytes)");
 
-    for (int i = 0; i < 16; i++) {
-        uint64_t *ptr = ((uint64_t*) first) + i;
-        kernel_printf("%lx", *ptr);
-    }
+//     for (int i = 0; i < 16; i++) {
+//         uint64_t *ptr = ((uint64_t*) first) + i;
+//         kernel_printf("%lx", *ptr);
+//     }
 
-    kprintln("\nTEST: Finished.");
-}
+//     kprintln("\nTEST: Finished.");
+// }
 
 static void set_checksum(BlockHeader *header) {
     uint64_t sum = 0;
@@ -124,7 +124,7 @@ void alloc_init() {
 
     kprintln("ALLOC: Initialized heap memory with size of %ld KiB.", heap_capacity / 1024);
 
-    test();
+    // test();
 }
 
 #define ALIGN_UP(x, a) (((x) + ((uintptr_t)(a) - 1)) & ~((uintptr_t)(a) - 1))

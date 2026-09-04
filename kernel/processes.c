@@ -268,16 +268,12 @@ static void teardown_thread(Thread* thread, uint64_t result) {
     teardown_process_with_switch(owning_process, result);
 }
 
-static void teardown_thread_with_switch(Thread* thread, uint64_t result) {
-    Thread *next = ctx_switching_get_next_thread(thread, false);
-    teardown_thread(thread, result);
-    ctx_switching_switch_next_destructive(next);
-}
-
 static void teardown_process_with_switch(Process *process, int64_t status) {
     if (process->state == PROCESS_TERMINATING) return;
 
     kprintln("PROC: Terminating process %ld with %ld alive threads...", process->pid, process->thread_count);
+
+    bool was_executing = ctx_switching_get_active_thread()->owner == process;
 
     vmm_switch_to_kernel_address_space();
 
@@ -306,15 +302,21 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
 
     if (pid == PROCESS_INIT_PID || pid == PROCESS_IDLE_PID) PANIC("Protected process %ld has been terminated!", pid);
 
-    Thread *next = ctx_switching_get_next_thread(null, false); // FIXME: Is there really no better option?
-    ctx_switching_switch_next_destructive(next);
+    if (was_executing) {
+        Thread *next = ctx_switching_get_next_thread(null, false);
+        ctx_switching_switch_next_destructive(next);
+    }
 }
 
 extern void processes_exit_trampoline(void *function, uint64_t arg1, uint64_t arg2);
 
-bool process_begin_thread_teardown(Thread* thread, uint64_t result) {
-    processes_exit_trampoline(teardown_thread_with_switch, (uint64_t) thread, result);
-    return true;
+void process_begin_thread_teardown(Thread* thread, uint64_t result) {
+    bool was_executing = ctx_switching_get_active_thread() == thread;
+    Thread *next = null;
+    
+    if (was_executing) next = ctx_switching_get_next_thread(thread, false);
+    processes_exit_trampoline(teardown_thread, (uint64_t) thread, result);
+    if (was_executing) ctx_switching_switch_next_destructive(next);
 }
 
 bool process_begin_process_teardown(Process* process, int64_t status) {
