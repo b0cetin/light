@@ -7,13 +7,13 @@
 #include "types.h"
 #include <stdint.h>
 
-// FIXME: Increadibly unoptimized.
+// FIXME: Increadibly unoptimized. fastpath when?
 rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
     Thread *caller_t = ctx_switching_get_active_thread();
     Process *target_p = process_find(target);
 
     if (target_p == null)
-        return (rpc_result_t) { .error_code = SYS_ERR_RPC_PID_NOT_FOUND, .result = 0 };
+        return (rpc_result_t) { .error_code = SYS_ERR_UNRESOLVED_PID, .result = 0 };
 
     RPC rpc = {
         .caller_pid = caller_t->owner->pid,
@@ -34,7 +34,7 @@ rpc_result_t sys_rpc_invoke(pid_t target, uint64_t call_number, uint64_t arg0, u
         case RPC_INVOKE_CALLEE_NOT_RECEIVING:
             return (rpc_result_t) { .error_code = -1, .result = 0 };
         case RPC_INVOKE_DUPLICATE:
-            return (rpc_result_t) { .error_code = SYS_ERR_RPC_TOO_MANY_CALLS, .result = 0 };
+            return (rpc_result_t) { .error_code = SYS_ERR_RPC_INVOKE_TOO_MANY_CALLS, .result = 0 };
         default:
             break;
     }
@@ -87,11 +87,11 @@ int64_t sys_rpc_return(pid_t caller, uint64_t result) {
     Process *responder_p = responder_t->owner;
 
     Process *caller_p = process_find(caller);
-    if (caller_p == null) return SYS_ERR_RPC_CALLER_DEAD; // FIXME: Shouldn't we check for SYS_ERR_RPC_PID_NOT_CALLER first?
+    if (caller_p == null) return SYS_ERR_UNRESOLVED_PID; // FIXME: Shouldn't we check for SYS_ERR_RPC_PID_NOT_CALLER first?
 
     Thread *caller_t = null;
     if (!process_rpc_reply(responder_p, caller_p, result, &caller_t))
-        return SYS_ERR_RPC_PID_NOT_CALLER;
+        return SYS_ERR_RPC_RETURN_PID_NOT_CALLER;
 
     ctx_switching_switch_to_now(caller_t);
 

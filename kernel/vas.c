@@ -4,6 +4,7 @@
 #include "kernel_lib.h"
 #include "allocator.h"
 #include "pmm.h"
+#include "shared_memory.h"
 #include "types.h"
 #include "vmm.h"
 #include <stdint.h>
@@ -14,6 +15,7 @@ VirtualMemoryObject *vmem_create_slice(uintptr_t *_array, size_t size) {
     memcpy(array, _array, sizeof(uintptr_t) * size);
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
+    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_SLICE;
     object->slice.count = size;
     object->slice.pages = array;
@@ -26,6 +28,7 @@ VirtualMemoryObject *vmem_create_slice_continuous(uintptr_t phys_start, size_t p
         array[i] = phys_start + i * PAGE_SIZE;
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
+    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_SLICE;
     object->slice.count = page_count;
     object->slice.pages = array;
@@ -44,6 +47,7 @@ VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free) {
     }
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
+    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_ALLOCATION;
     object->allocation.count = page_count;
     object->allocation.pages = array;
@@ -53,6 +57,7 @@ VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free) {
 
 VirtualMemoryObject *vmem_create_mmio(uint64_t phys_start, size_t page_count) {
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
+    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_MMIO;
     object->mmio.page_count = page_count;
     object->mmio.phys_start = phys_start;
@@ -155,7 +160,6 @@ uintptr_t vmem_get_phys_page(VirtualMemoryObject *object, size_t index) {
     return 0;
 }
 
-// Returns number of pages mapped.
 VASRegion *vas_add_region(VAS *vas, uint64_t virt_start, VASRegionPermission permissions, VASRegionReason reason, VirtualMemoryObject *backing) {
     if (backing == null)
         PANIC("vas_add_region with null backing!");
@@ -246,6 +250,8 @@ static void remove_region_internal(VAS *vas, VASRegion *region, bool perform_unm
     region->backing->ref_count--;
 
     if (region->backing->ref_count <= 0) {
+        if (smem_is_shared(region->backing)) smem_remove(region->backing);
+
         switch (region->backing->type) {
         case VM_OBJ_ALLOCATION:
             kprintln("VAS: Freeing allocation memory object with %ld pages!", region->backing->allocation.count);

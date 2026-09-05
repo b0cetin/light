@@ -2,6 +2,23 @@
 
 As the light kernel is actively being developed, these syscalls may change at any time. Always compile your applications to the newest specification.
 
+## Global Error Codes
+
+These are error codes that all syscall's share. These start from *-1* and count down. Syscall-specific error codes start from *-4096* and count up.
+
+* **SYS_ERR_ARGUMENT_POINTER_INVALID** -1: One or more pointer arguments given by the caller was invalid/not mapped.
+* **SYS_ERR_INVALID_RANGE** -2: The range specified is not valid. (e.g. `address` -> `length`)
+* **SYS_ERR_ARGUMENT_UNALIGNED** -3: An unaligned argument was provided for a parameter that expects a value aligned to the system's page size (*4096*).
+* **SYS_ERR_CANNOT_FIND_SPACE** -4: The kernel cannot find a block large enough to fit what is requested. (e.g. a mapping in the process address space)
+* **SYS_ERR_ARGUMENT_INVALID** -5: A generic catch-all for any problematic argument. (e.g. an unknown set flag)
+* **SYS_ERR_OUT_OF_MEMORY** -6: There isnt't enough free memory in the system to perform the requested operation.
+* **SYS_ERR_UNRESOLVED_PID** -7: Any given `pid_t` cannot be resolved to a running process.
+* **SYS_ERR_ADDRESS_RANGE_CLASH** -8: The given requested range mapping clashes with a prior mapping.
+
+---
+
+* **SYS_ERR_UNKNOWN_SYSCALL** *Minimum signed 64-bit integer*: The requested syscall is unknown.
+
 ## Types
 
 * **pid_t**: type-alias `uint64_t`
@@ -36,7 +53,7 @@ Returns the process id of the thread invoking the call.
 Only reserved for the init process. Loads ELF executable from given memory and gives it the name provided. Returns negative values for errors and 0 for success. If success, the newly created process' pid is written to the `out_pid` parameter. If any of the pointers/ranges given (`content`, `name`, `out_pid`) are invalid, the function will return -1 with no changes.
 
 ## 9: int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t irq)
-Configures how the kernel reacts to the specified interrupt request at the given `irq`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_IRQCTL_REQUEST_INVALID** immediately. The only accepted range the parameter `irq` starts from 0 and expands up to the amount of I/O APIC relocation entries on the system, which can be as low as (and usually is) 24. If this range is not respected, the function will return **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE** immediately.
+Configures how the kernel reacts to the specified interrupt request at the given `irq`. The functionality of this syscall differs based on the `request` given, see below. If an unrecognized `request` is given, the function will return **SYS_ERR_INVALID_ARGUMENT** immediately. The only accepted range the parameter `irq` starts from 0 and expands up to the amount of I/O APIC relocation entries on the system, which can be as low as (and usually is) 24. If this range is not respected, the function will return **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE** immediately.
 
 ### enum IRQCTLRequest
 
@@ -50,23 +67,21 @@ Configures how the kernel reacts to the specified interrupt request at the given
 
 ### Error Codes
 
-1. **Generic (-1)**: Unspecified error.
+* **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED (-4096)**: Indicates that the requested interrupt request has not been reserved for the calling process.
 
-2. **SYS_ERR_IRQCTL_IRQ_NOT_RESERVED (-2)**: Indicates that the requested interrupt request has not been reserved for the calling process.
+* **SYS_ERR_IRQCTL_AWAIT_DUPLICATE (-4095)**: Indicates that the interrupt request to be awaited is already being awaited in the process.
 
-3. **SYS_ERR_IRQCTL_AWAIT_DUPLICATE (-3)**: Indicates that the interrupt request to be awaited is already being awaited in the process.
+* **SYS_ERR_IRQCTL_AWAIT_CANCELLED (-4094)**: Indicates that the await ended prematurely because of a call using IRQCTL_CANCEL.
 
-4. **SYS_ERR_IRQCTL_AWAIT_CANCELLED (-4)**: Indicates that the await ended prematurely because of a call using IRQCTL_CANCEL.
+* **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED (-4093)**: Indicates that the interrupt request is currently not being awaited within the process.
 
-5. **SYS_ERR_IRQCTL_CANCEL_NOT_AWAITED (-5)**: Indicates that the interrupt request is currently not being awaited within the process.
+* **SYS_ERR_IRQCTL_IRQ_IN_USE (-4092)**: Indicates that the requested interrupt request is currently reserved for another process.
 
-6. **SYS_ERR_IRQCTL_IRQ_IN_USE (-6)**: Indicates that the requested interrupt request is currently reserved for another process.
+* **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE (-4091)**: Indicates that the requested interrupt request is not within the allowed limits.
 
-7. **SYS_ERR_IRQCTL_IRQ_OUT_OF_RANGE (-7)**: Indicates that the requested interrupt request is not within the allowed limits.
+* **SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING (-4090)**: Indicates that the requested interrupt request cannot be unset because an IRQCTL_AWAIT operation is underway.
 
-8. **SYS_ERR_IRQCTL_REQUEST_INVALID (-8)**: Indicates that the request code is unrecognized.
-
-9. **SYS_ERR_IRQCTL_UNSET_IRQ_AWAITING (-9)**: Indicates that the requested interrupt request cannot be unset because an IRQCTL_AWAIT operation is underway.
+* SYS_ERR_INVALID_ARGUMENT for `request`.
 
 ## 10: uint32_t sys_port_io_in(uint16_t port, PORTIOSize size)
 
@@ -102,25 +117,17 @@ struct rpc_result_t {
 
 ### Error Codes
 
-1. **Generic (-1)**: Unspecified error.
-
-2. **SYS_ERR_RPC_PID_NOT_FOUND (-2)**: The target process cannot be resolved from the provided pid.
-
-3. **SYS_ERR_RPC_TOO_MANY_CALLS (-3)**: The process tried to make a second call to the target process before the target process replied to the previous call.
+* **SYS_ERR_RPC_INVOKE_TOO_MANY_CALLS (-4096)**: The process tried to make a second call to the target process before the target process replied to the previous call.
 
 ## 13: int64_t sys_rpc_receive(pid_t *out_caller, uint64_t *out_call_number, uint64_t *out_arg0, uint64_t *out_arg1, uint64_t *out_arg2, uint64_t *out_arg3)
-Returns -1 if the given pointers are invalid. Pauses thread execution until a **sys_rpc_invoke** is called for this process. The thread cannot be resumed for any other reason. Can be called by multiple threads, and only one will receive the RPC in a *oldest created thread to newest created thread* fashion.
+Returns **SYS_ERR_ARGUMENT_POINTER_INVALID** if the given pointers are invalid. Pauses thread execution until a **sys_rpc_invoke** is called for this process. The thread cannot be resumed for any other reason. Can be called by multiple threads, and only one will receive the RPC in a *oldest created thread to newest created thread* fashion.
 
 ## 14: int64_t sys_rpc_return(pid_t caller, uint64_t result)
 Execution immediately returns back to the calling thread (which therefore pauses the execution of the calling thread), with the given result being passed to it. Replying to the `sys_rpc_awaken` syscall is no-op and returns **SYS_ERR_RPC_PID_NOT_CALLER**.
 
 ### Error Codes
 
-1. **Generic (-1)**: Unspecified error.
-
-2. **SYS_ERR_RPC_PID_NOT_CALLER (-4)**: The process tried to reply to a process that didn't make an RPC to it.
-
-3. **SYS_ERR_RPC_CALLER_DEAD (-5)**: The process replied to a call from a process that no longer exists. This isn't necessarily an error on the responder's part.
+2. **SYS_ERR_RPC_RETURN_PID_NOT_CALLER (-4096)**: The process tried to reply to a process that didn't make an RPC to it.
 
 ## 15: uint64_t sys_rpc_awaken(uint64_t count)
 Resumes `count` number of threads waiting with `sys_rpc_receive`. The call number passed into the receive call is `UINT64_MAX`, with args being `0` and `out_caller` being the current process. `count` argument is not limited in any way. The syscall returns the amount of receive calls successfully awakened. `sys_rpc_return` for this syscall will return **SYS_ERR_RPC_PID_NOT_CALLER**.
@@ -128,24 +135,10 @@ Resumes `count` number of threads waiting with `sys_rpc_receive`. The call numbe
 > Developer's FIXME: Why does it return `SYS_ERR_RPC_PID_NOT_CALLER`? Isn't `SYS_SUCCESS` preferred?
 
 ## 16: int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virtual_address)
-Tries to map the continuous physical memory to the given virtual address in a continuous way. If the data at `virtual_address` is `0`, then the kernel will pick an unused location and write out the selected location to the address specified by the pointer. If `virtual_address` points to an invalid region of memory and is not `0`, then the call with return -1 immediately. All arguments must be aligned to the system's page size (which is *4 KiB*.) The mapping will be declared in a way that skips the processor cache.
+Tries to map the continuous physical memory to the given virtual address in a continuous way. If the data at `virtual_address` is `0`, then the kernel will pick an unused location and write out the selected location to the address specified by the pointer. If `virtual_address` points to an invalid region of memory and is not `0`, then the call with return **SYS_ERR_ARGUMENT_POINTER_INVALID** immediately. All arguments must be aligned to the system's page size (which is *4 KiB*.) The mapping will be declared in a way that skips the processor cache.
 
-### Error Codes
-
-1. **Generic (-1)**: Unspecified error.
-
-2. **SYS_ERR_MAP_MMIO_INVALID_RANGE (-2)**: The range given with `physical_page_base` and `size` was invalid.
-
-3. **SYS_ERR_MAP_MMIO_USED (-3)**: The provided range (`virtual_address` and `size`) is fully/partially already mapped into the calling process.
-
-4. **SYS_ERR_MAP_MMIO_ARG_UNALIGNED (-4)**: One or more arguments weren't aligned to the system's page size.
-
-5. **SYS_ERR_MAP_MMIO_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the desired size into the calling process' address space cannot be found. This error can only be encountered when `virtual_address` is `0`.
-
-## 17: **RESERVED for sys_unmap_mmio or similar.**
-
-## 18: int64_t sys_memory_map(void \*\*address, size_t length, MemoryAccessFlags access)
-Locates enough free pages in memory and maps them to the requested address in a continious way with the requested protection flags. If the value at given `address` is `0`, then the kernel will pick a suitable location in the caller's address space and write this address to the `address` argument. The length (and address if provided) must be aligned to the system's page size. If the argument `address` itself is not a valid mapped address in the caller's address space, the call will return -1 immediately.
+## 17: int64_t sys_memory_map(void \*\*address, size_t length, MemoryAccessFlags access)
+Locates enough free pages in memory and maps them to the requested address in a continious way with the requested protection flags. If the value at given `address` is `0`, then the kernel will pick a suitable location in the caller's address space and write this address to the `address` argument. The length (and address if provided) must be aligned to the system's page size. If the argument `address` itself is not a valid mapped address in the caller's address space, the call will return **SYS_ERR_ARGUMENT_POINTER_INVALID** immediately.
 
 ### Type-alias MemoryAccessFlags: uint64_t
 A 64-bit bitmask field defining the memory protection info for the mapping.
@@ -154,23 +147,7 @@ A 64-bit bitmask field defining the memory protection info for the mapping.
 1. **MMAP_ACCESS_WRITE (0x2)**: Allows write.
 1. **MMAP_ACCESS_EXEC (0x4)**: Allows code execution.
 
-### Error Codes
-
-1. **Generic (-1):** Unspecified error.
-
-2. **SYS_ERR_MMAP_INVALID_RANGE (-2):** The range specified with `address` and `length` is not valid.
-
-3. **SYS_ERR_MMAP_USED (-3):** The provided range (`address` and `size`) is fully/partially already mapped into the calling process.
-
-4. **SYS_ERR_MMAP_ARG_UNALIGNED (-4)**: One or more arguments weren't aligned to the system's page size.
-
-5. **SYS_ERR_MMAP_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the desired size into the calling process' address space cannot be found. This error can only be encountered when the value at `address` is `0`.
-
-5. **SYS_ERR_MMAP_INVALID_ACCESS (-6)**: `access` features unknown/unsupported flags.
-
-5. **SYS_ERR_MMAP_OUT_OF_MEMORY (-7)**: The system doesn't have enough free memory to complete this operation.
-
-## 19: int64_t sys_memory_unmap(void \*address, size_t length, MemoryUnmapFlags flags)
+## 18: int64_t sys_memory_unmap(void \*address, size_t length, MemoryUnmapFlags flags)
 Looks at the range specified and unmaps all the memory mapped inside. This can include multiple pages. This function cannot divide memory regions. This call can only free mappings mapped per the process' request prior, as such, a process cannot nuke their address space with this call. This function does allow unaligned values. Unmapped regions are skipped.
 
 ### Type-alias MemoryUnmapFlags: uint64_t
@@ -184,45 +161,15 @@ Any return code above or equal to 0 is success, and means at least one region wa
 
 2. **SYS_MUNMAP_SUCCESS_NOOP (1):** While there were no errors, no regions could be found and unmapped during the call, making the call no-op.
 
-### Error Codes
-
-Any negative return code is an error.
-
-1. **Generic (-1):** Unspecified error.
-
-2. **SYS_ERR_MUNMAP_INVALID_FLAGS (-2):** `flags` features unknown/unsupported flags.
-
-3. **SYS_ERR_MUNMAP_INVALID_RANGE (-3):** The supplied range is invalid (e.g. the range yields an integer overflow, length is zero.)
-
-## 20: int64_t sys_memory_share(void \*address, size_t length, SharedMemoryID *out_id)
-Marks the region of memory as shared and outputs the newly shared memory ID. Arguments must be aligned to the system's page size. If `out_id` is invalid, returns -1 immediately. The memory region inputted must be mapped beforehand with `sys_memory_map`. The shared memory will not be destroyed until all processes referencing it are terminated or have unmapped it. Performing this syscall back to back with the same range will output the same `SharedMemoryID`.
-
-> Developer's FIXME: No. It will not output the same SharedMemoryID. There is no VAS tracking. We need a better system.
+## 19: int64_t sys_memory_share_create(void \*\*address, size_t length, MemoryAccessFlags access, SharedMemoryID \*out_id)
+Performs `sys_memory_map`, and outputs the shared memory ID. The shared memory will not be destroyed until all processes referencing it are terminated or have unmapped it.
 
 ### Type-alias SharedMemoryID: uint64_t
 A global system identifier for a shared memory region. Not presistent.
 
-### Error Codes
-
-1. **Generic (-1):** Unspecified error.
-
-2. **SYS_ERR_MSHARE_INVALID_RANGE (-2):** The range specified with `address` and `length` is not valid.
-
-3. **SYS_ERR_MSHARE_UNMAPPED (-3):** The range specified with `address` and `length` isn't fully mapped.
-
-4. **SYS_ERR_MSHARE_ARG_UNALIGNED (-4):** One or more arguments weren't aligned to the system's page size.
-
-## 21: int64_t sys_memory_share_map(SharedMemoryID id, void \*\*address)
-Resolves the shared memory reference and maps it to the given address. If the value at `address` is `0`, then the kernel will pick a suitable location and write it out. If a value is provided, the value at `address` must be aligned to the system page size. Returns the amount of bytes mapped if successful. If `address` is invalid, -1 will be returned immediately.
+## 20: int64_t sys_memory_share_map(SharedMemoryID id, void \*\*address, MemoryAccessFlags access)
+Resolves the shared memory reference and maps it to the given address. If the value at `address` is `0`, then the kernel will pick a suitable location and write it out. If a value is provided, the value at `address` must be aligned to the system page size. Returns the amount of bytes mapped if successful. If `address` is invalid, **SYS_ERR_ARGUMENT_POINTER_INVALID** will be returned immediately.
 
 ### Error Codes
 
-1. **Generic (-1):** Unspecified error.
-
-2. **SYS_ERR_MSHARE_INVALID_RANGE (-2):** The address given in `address` (or the range with the implicit size of the shared memory region) is not valid.
-
-3. **SYS_ERR_MSHARE_USED (-3):** The address given in `address` (or the range with the implicit size of the shared memory region) clashes with already mapped memory.
-
-4. **SYS_ERR_MSHARE_ARG_UNALIGNED (-4)**
-
-5. **SYS_ERR_MSHARE_CANNOT_FIND_SPACE (-5)**: A continuous space large enough to fit the shared size into the calling process' address space cannot be found. This error can only be encountered when the value at `address` is `0`.
+* **SYS_ERR_MSHARE_MAP_UNRESOLVED_SMID (-4096)**: The given `id` could not be resolved to a shared memory object.

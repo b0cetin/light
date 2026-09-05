@@ -103,16 +103,16 @@ syscall_result_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t a
             return SYS_RET(sys_rpc_awaken(arg1));
         case 16:
             return SYS_RET(sys_map_mmio(arg1, arg2, (uintptr_t*) arg3));
-        case 18:
+        case 17:
             return SYS_RET(sys_memory_map((void**) arg1, arg2, arg3));
-        case 19:
+        case 18:
             return SYS_RET(sys_memory_unmap((void*) arg1, arg2, arg3));
+        case 19:
+            return SYS_RET(sys_memory_share_create((void**) arg1, arg2, arg3, (Sys_SharedMemoryID*) arg4));
         case 20:
-            return SYS_RET(sys_memory_share((void*) arg1, arg2, (Sys_SharedMemoryID*) arg3));
-        case 21:
-            return SYS_RET(sys_memory_share_map(arg1, (void**) arg2));
+            return SYS_RET(sys_memory_share_map((Sys_SharedMemoryID) arg1, (void**) arg2, arg3));
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
-            return SYS_RET(-1);
+            return SYS_RET(SYS_ERR_UNKNOWN_SYSCALL);
     }
 }

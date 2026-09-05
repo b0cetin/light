@@ -11,8 +11,9 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [ ] Kernel-side ELF loading still has issues. (will ELF loading ever transition to userspace?) (needs VAS)
 - [ ] `sys_map_mmio` is unsafe. Very.
 - [ ] A capability system (or rather any security enforcement system) is needed.
-- [ ] A global error ID system is needed.
+- [x] A global error ID system is needed.
 - [ ] ACPI will require custom memory addresses for kernel processes. (And yes, ACPI needs to be a kernel-space process.)
+- [ ] Perhaps add global error printing to userspace printf?
 
 Known bug:
 - [x] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)

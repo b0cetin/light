@@ -15,7 +15,7 @@ void fade_to_black(uint8_t *restrict buffer, size_t size) { // Software emulated
 }
 
 int main() {
-    println("GFX: Waiting for framebuffer information from init process...");
+    println("Waiting for framebuffer information from init process...");
 
     uint8_t *buffer = NULL;
     uint64_t size = 0, width = 0, height = 0, pitch = 0;
@@ -69,14 +69,18 @@ int main() {
         memset(buffer, 0x50, size);
     }
 
-    // println("Testing memory sharing.");
-    // println("Mapping first.");
-    // void *address = 0;
-    // println("Map result: %li", sys_memory_map(&address, 20480, MMAP_ACCESS_READ | MMAP_ACCESS_WRITE));
-    // println("Map address: %#lx", (uint64_t) address);
-    // SharedMemoryID id = 0;
-    // println("Share result: %li", sys_memory_share(address, 20480, &id));
-    // println("Share id: %lu", id);
+    println("Creating a shared memory mapping of size 4096 * 2.");
+    void *address = NULL;
+    size_t length = 4096 * 2;
+    SharedMemoryID id = 0;
+    println("sys_memory_share_create result: %li", sys_memory_share_create(&address, length, MMAP_ACCESS_READ | MMAP_ACCESS_WRITE, &id));
+    println("shared memory id: %lu", id);
+
+    println("Mapping it in!");
+    void *new_address = NULL;
+    println("sys_memory_share_map result: %li", sys_memory_share_map(id, &new_address, MMAP_ACCESS_READ));
+
+    sys_exit(0);
 
     while (true);
 

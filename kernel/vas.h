@@ -15,6 +15,7 @@ typedef enum {
 // Contains variable-length array.
 typedef struct {
     uint64_t ref_count;
+    uint64_t smem_id;
 
     VirtualMemoryObjectType type;
 

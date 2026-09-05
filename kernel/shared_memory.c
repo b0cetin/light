@@ -1,8 +1,9 @@
 
 #include "shared_memory.h"
 #include "debugging.h"
+#include "types.h"
 #include "utils/hashtables/u64toaddr_hashtable.h"
-#include "vmm.h"
+#include "vas.h"
 #include <stdint.h>
 
 Hashtable *table;
@@ -11,43 +12,38 @@ void smem_init() {
     table = ht_create();
 }
 
+SharedMemoryID next_id = SMEM_ID_NULL + 1; // TODO: A random number generator needed
 
+SharedMemoryID smem_add(VirtualMemoryObject *object) {
+    if (object == null) PANIC("smem_add: object is null");
+    if (smem_is_shared(object)) PANIC("smem_add: object is already shared");
 
-SharedMemoryKey next_id = 1; // FIXME: A more secure way to identify needed
+    SharedMemoryID id = next_id++;
 
+    if (!ht_add(table, id, (uintptr_t) object))
+        PANIC("smem_add: ht_add failed");
 
+    object->smem_id = id;
 
-SharedMemoryKey smem_create(PML4 *address_space, uintptr_t base, uint64_t page_count) {
-    PANIC("smem_create not implemented.");
+    kprintln("SMEM: Object shared with ID: %ld", next_id);
 
-
-    // SharedMemoryEntry *entry = allocate_entry();
-    // if (entry == null) return SMEM_NULL_ID;
-
-    // if (base & 0xFFF)
-    //     PANIC("Address supplied into smem_create is not page-aligned!");
-
-    // if (page_count <= 0)
-    //     PANIC("Page count is 0 in smem_create!");
-
-    // entry->physical_pages = kmalloc(page_count * sizeof(uint64_t));
-    // entry->page_count = page_count;
-    // entry->map_flags = 0;
-
-    // for (uint64_t i = 0; i < page_count; i++) {
-    //     uint64_t phys = 0, flags = 0;
-    //     vmm_get_page_info(address_space, base + PAGE_SIZE * i, &phys, &flags);
-
-    //     entry->physical_pages[i] = phys;
-    //     entry->map_flags |= flags; // FIXME: Inconsistent behaviour.
-    // }
-
-    // entry->reference_count = 1;
-
-    // return entry->id;
+    return id;
 }
 
-// Returns the number of bytes mapped.
-uint64_t smem_map(PML4 *address_space, uintptr_t base, SharedMemoryKey key) {
-    PANIC("smem_map not implemented.");
+VirtualMemoryObject *smem_get(SharedMemoryID id) {
+    VirtualMemoryObject *object = null;
+    ht_lookup(table, id, (uintptr_t*) &object);
+    return object;
+}
+
+void smem_remove(VirtualMemoryObject *object) {
+    if (!smem_is_shared(object)) PANIC("smem_remove: object is not shared");
+
+    SharedMemoryID id = object->smem_id;
+
+    ht_remove(table, id);
+
+    object->smem_id = SMEM_ID_NULL;
+
+    kprintln("SMEM: Object stopped being shared with ID: %ld", next_id);
 }

@@ -66,6 +66,6 @@ int64_t sys_interrupt_control(IRQCTLRequest request, uint64_t irq) {
             return SYS_SUCCESS;
         }
         default:
-            return SYS_ERR_IRQCTL_REQUEST_INVALID;
+            return SYS_ERR_ARGUMENT_INVALID;
     }
 }
