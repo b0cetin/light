@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syscalls.h>
 
@@ -55,6 +56,10 @@ void receive_rpc_thread() {
 }
 
 int main() {
+    void *a = malloc(897);
+    malloc(1234);
+    free(a);
+    
     println("Waiting for framebuffer information from init process...");
 
     uint8_t *buffer = NULL;
@@ -122,6 +127,7 @@ int main() {
 
     println("EFI framebuffer display backend initialized.");
 
+    register_interface(interfaces_compositor());
     register_interface(interfaces_shared_memory());
 
     println("All interfaces registered.");

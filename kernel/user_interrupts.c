@@ -59,6 +59,8 @@ void user_irq_reserve(uint8_t irq, Process *process) {
         PANIC("user_irq_reserve called on reserved vector.");
 
     UserIRQReservation *reservation = kmalloc(sizeof(UserIRQReservation));
+    if (reservation == null)
+        PANIC("user_irq_reserve failed: system out of memory.");
 
     reservation->reserver = process;
     reservation->awaiter = null;

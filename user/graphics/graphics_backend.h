@@ -4,11 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "shared.h"
 
 typedef uint64_t DisplayRefreshRate;
 #define REFRESH_RATE_UNKNOWN 0
-
-typedef enum { PIXEL_FORMAT_XRGB8888, PIXEL_FORMAT_BGRX8888 } PixelFormat;
 
 typedef struct {
     uint64_t width;
@@ -17,12 +16,10 @@ typedef struct {
     PixelFormat pixel_format;
 } DisplayProperties;
 
-typedef struct { uint64_t x, y, width, height; } DisplayRect;
-
 typedef bool (*DspPollProperties) (DisplayProperties *out_properties);
 typedef bool (*DspInitialize) (void);
 typedef void (*DspDestruct) (void);
-typedef bool (*DspPresentCPUBuffer) (void *buffer, size_t length, uint64_t stride, DisplayRect dirty_rect);
+typedef bool (*DspPresentCPUBuffer) (void *buffer, size_t length, uint64_t stride, DirtyRect dirty_rect);
 
 typedef struct {
     DspInitialize init;

@@ -2,6 +2,8 @@
 TRIGGER=".qemu-trigger"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+cd "$(dirname "$0")"
+
 cleanup() { rm -f "$TRIGGER"; echo "Host runner stopped."; }
 trap cleanup EXIT
 

@@ -22,7 +22,7 @@ On the host system, `qemu-system-x86_64` is needed. The `run.sh` launch script u
 | Run script | ✅ `run.sh` | ✅ `run.sh` | ❌ |
 | Host runner service | ✅ `mac-host-runner.sh` | ❌ | ❌ |
 
-After getting into the devcontainer, run `bear -- make` to generate `compile_commands.json`.
+After getting into the devcontainer, run `bear -- make all` (`all` is necessary) to generate `compile_commands.json`.
 
 Running `make run` inside the devcontainer will compile the OS and trigger the run script, regardless of the editor.
 

@@ -297,6 +297,9 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
     uint64_t pid = process->pid;
 
     kfree(process);
+    
+    if (!ht_remove(pid_to_process, pid))
+        PANIC("Cannot remove process %ld from pid2process hashtable!", pid);
 
     kprintln("PROC: Process %ld terminated with status %ld.", pid, status);
 

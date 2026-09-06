@@ -25,7 +25,7 @@ OBJ_DIRS := $(sort $(dir $(OBJS)))
 Q ?= @
 
 CFLAGS  := -g -ffreestanding -nostdlib -fno-pic -fno-stack-protector \
-           -mno-red-zone -mcmodel=large -Wall -O3 \
+           -mno-red-zone -mcmodel=large -Wall -Werror -O3 \
            -I$(LIBC_DIR)/include \
 		   -I.
 

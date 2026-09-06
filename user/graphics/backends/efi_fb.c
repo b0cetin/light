@@ -63,7 +63,7 @@ static bool poll_properties(DisplayProperties *out_properties) {
 }
 
 static bool present_cpu_buffer (void *buffer, size_t length, uint64_t stride, DisplayRect dirty_rect) {
-
+    return false;
 }
 
 DisplayBackend efi_fb_get() {
