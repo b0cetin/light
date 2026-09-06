@@ -8,18 +8,18 @@
 
 uint32_t *fb;
 uint64_t fb_size;
-uint32_t width;
-uint32_t height;
+uint32_t efi_fb_width;
+uint32_t efi_fb_height;
 uint32_t stride;
 
 bool initialized;
 
 
 uint32_t fb_width() {
-    return width;
+    return efi_fb_width;
 }
 uint32_t fb_height() {
-    return height;
+    return efi_fb_height;
 }
 
 void fb_init(BootInfo *bootInfo) {
@@ -30,13 +30,13 @@ void fb_init(BootInfo *bootInfo) {
 
     fb = p2v(bootInfo->framebuffer.PhysicalFramebufferBase);
     fb_size = bootInfo->framebuffer.FramebufferSize;
-    width = bootInfo->framebuffer.HorizontalResolution;
-    height = bootInfo->framebuffer.VerticalResolution;
+    efi_fb_width = bootInfo->framebuffer.HorizontalResolution;
+    efi_fb_height = bootInfo->framebuffer.VerticalResolution;
     stride = bootInfo->framebuffer.PixelsPerScanLine;
 
     kprintln("FBG: Framebuffer location: %lx", fb);
     kprintln("FBG: Framebuffer size: %ld", fb_size);
-    kprintln("FBG: Framebuffer dimensions: %dx%d (stride: %d)", width, height, stride);
+    kprintln("FBG: Framebuffer dimensions: %dx%d (stride: %d)", efi_fb_width, efi_fb_height, stride);
 
     kprintln("FBG: Mapping framebuffer memory as MMIO...");
     
@@ -51,7 +51,7 @@ void fb_clear(Color color) {
     if (!initialized)
         return;
 
-    for (uint64_t i = 0; i < (width * height); i++) {
+    for (uint64_t i = 0; i < (efi_fb_width * efi_fb_height); i++) {
         fb[i] = color;
     }
 }
@@ -60,7 +60,7 @@ inline void fb_draw_pixel(uint64_t x, uint64_t y, Color color) {
     if (!initialized)
         return;
 
-    if (x >= width || y >= height)
+    if (x >= efi_fb_width || y >= efi_fb_height)
         return;
 
     fb[y * stride + x] = color;
@@ -73,13 +73,13 @@ void fb_draw_rect(uint64_t x, uint64_t y, uint64_t w, uint64_t h, Color color) {
     uint64_t x_end = x + w;
     uint64_t y_end = y + h;
 
-    if (x >= width || y >= height)
+    if (x >= efi_fb_width || y >= efi_fb_height)
         return;
 
-    if (x_end > width)
-        x_end = width;
-    if (y_end > height)
-        y_end = height;
+    if (x_end > efi_fb_width)
+        x_end = efi_fb_width;
+    if (y_end > efi_fb_height)
+        y_end = efi_fb_height;
 
     for (uint64_t yy = y; yy < y_end; yy++) {
         Color *row = fb + yy * stride + x;
@@ -108,7 +108,7 @@ void fb_draw_text(uint64_t x, uint64_t y, const char *text, Color color) {
                     uint64_t px = x + x_offset + wx * 2;
                     uint64_t py = y + wy * 2;
 
-                    if (px < width && py < height) {
+                    if (px < efi_fb_width && py < efi_fb_height) {
                         fb[py * stride + px] = color;
                         fb[py * stride + px + 1] = color;
                         fb[(py + 1) * stride + px] = color;

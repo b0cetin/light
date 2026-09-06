@@ -170,6 +170,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     if (EFI_ERROR(get_gop(&gop)))
         while(1) {}
 
+    Print(L"EFI framebuffer pixel format: %u", gop->Mode->Info->PixelFormat);
+
     set_gop_into_boot_info(gop, &bootInfo);
 
     EFI_GUID acpi_guid = ACPI_20_TABLE_GUID;

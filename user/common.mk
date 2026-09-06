@@ -15,8 +15,10 @@ EXEC_NAME := $(notdir $(CURDIR))
 TMP := /tmp/user-build/$(EXEC_NAME)
 OUT := $(USERSPACE_ROOT)/../dist/user
 
-C_SRCS := $(wildcard *.c)
+C_SRCS := $(shell find . -type f -name '*.c')
 OBJS   := $(C_SRCS:%.c=$(TMP)/%.o)
+
+OBJ_DIRS := $(sort $(dir $(OBJS)))
 
 # Flags
 
@@ -24,7 +26,8 @@ Q ?= @
 
 CFLAGS  := -g -ffreestanding -nostdlib -fno-pic -fno-stack-protector \
            -mno-red-zone -mcmodel=large -Wall -O3 \
-           -I$(LIBC_DIR)/include
+           -I$(LIBC_DIR)/include \
+		   -I.
 
 ASFLAGS := -ffreestanding -mno-red-zone -mcmodel=large
 
@@ -37,7 +40,10 @@ LDFLAGS   := -n -T ../linker.ld
 $(TMP):
 	mkdir -p $(TMP)
 
-$(TMP)/%.o: %.c | $(TMP)
+$(OBJ_DIRS):
+	$(Q)mkdir -p $@
+
+$(TMP)/%.o: %.c | $(TMP) $(OBJ_DIRS)
 	@echo "  CC    $(notdir $<)"
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 

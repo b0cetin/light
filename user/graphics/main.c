@@ -1,4 +1,8 @@
 
+#include "backends/efi_fb.h"
+#include "graphics_backend.h"
+#include "interface.h"
+#include "interfaces/interfaces.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -14,11 +18,46 @@ void fade_to_black(uint8_t *restrict buffer, size_t size) { // Software emulated
     }
 }
 
+DisplayBackend active_backend;
+
+// Used by efi_framebuffer.h
+uint64_t efi_fb_phys_base;
+size_t efi_fb_size;
+uint64_t efi_fb_width, efi_fb_height, efi_fb_pitch;
+
+void exit(int64_t status) {
+    active_backend.destroy();
+    sys_exit(status);
+}
+
+void receive_rpc_thread() {
+    pid_t caller;
+    uint64_t call_num, arg0, arg1, arg2, arg3;
+    int64_t receive_result;
+
+    while (true) {
+        receive_result = sys_rpc_receive(&caller, &call_num, &arg0, &arg1, &arg2, &arg3);
+        if (receive_result != SYS_SUCCESS) {
+            println("sys_rpc_receive failed with %li.", receive_result);
+            exit(-1);
+        }
+
+        if (caller == 0) { // init
+            sys_rpc_return(caller, INT64_C(-1));
+            println("unhandled rpc call from init: %lu", call_num);
+            exit(-1);
+        }
+
+        uint64_t out = INT64_MIN;
+        receive_call(caller, call_num, arg0, arg1, arg2, arg3, &out);
+        sys_rpc_return(caller, out);
+    }
+}
+
 int main() {
     println("Waiting for framebuffer information from init process...");
 
     uint8_t *buffer = NULL;
-    uint64_t size = 0, width = 0, height = 0, pitch = 0;
 
     while (1) {
         pid_t pid;
@@ -39,20 +78,20 @@ int main() {
             println("No UEFI framebuffer available.");
         }
         else {
-            uint64_t physical_base = call;
-            size = arg0;
-            width = arg1;
-            height = arg2;
-            pitch = arg3;
+            efi_fb_phys_base = call;
+            efi_fb_size = arg0;
+            efi_fb_width = arg1;
+            efi_fb_height = arg2;
+            efi_fb_pitch = arg3;
 
             buffer = 0;
 
-            if (sys_map_mmio(physical_base, size, (uintptr_t*) &buffer) != SYS_SUCCESS) {
-                println("Mapping UEFI framebuffer failed.");
+            if (sys_map_mmio(efi_fb_phys_base, efi_fb_size, (uintptr_t*) &buffer) != SYS_SUCCESS) {
+                println("Mapping boot UEFI framebuffer failed.");
                 return -1;
             }
 
-            println("UEFI framebuffer at %lx, size %lu, pitch: %lu. %lux%lu@X", (uint64_t) buffer, size, pitch, width, height);
+            println("UEFI framebuffer at %lx, size %lu, pitch: %lu. %lux%lu@X", efi_fb_phys_base, efi_fb_size, efi_fb_pitch, efi_fb_width, efi_fb_height);
         }
 
         sys_rpc_return(pid, 0);
@@ -63,26 +102,52 @@ int main() {
 
     if (buffer != NULL) {
         println("Fading to black...");
-        fade_to_black(buffer, size);
+        fade_to_black(buffer, efi_fb_size);
         println("Faded.");
 
-        memset(buffer, 0x50, size);
+        if (sys_memory_unmap(buffer, efi_fb_size, 0) != SYS_SUCCESS) {
+            println("Unmapping boot EFI framebuffer failed!");
+            return -1;
+        }
+
+        println("Unmapped boot EFI buffer.");
     }
 
-    println("Creating a shared memory mapping of size 4096 * 2.");
-    void *address = NULL;
-    size_t length = 4096 * 2;
-    SharedMemoryID id = 0;
-    println("sys_memory_share_create result: %li", sys_memory_share_create(&address, length, MMAP_ACCESS_READ | MMAP_ACCESS_WRITE, &id));
-    println("shared memory id: %lu", id);
+    active_backend = efi_fb_get();
 
-    println("Mapping it in!");
-    void *new_address = NULL;
-    println("sys_memory_share_map result: %li", sys_memory_share_map(id, &new_address, MMAP_ACCESS_READ));
+    if (!active_backend.init()) {
+        println("Initializing display backend failed!");
+        return -1;
+    }
 
-    sys_exit(0);
+    println("EFI framebuffer display backend initialized.");
 
-    while (true);
+    register_interface(interfaces_shared_memory());
 
-    return 0;
+    println("All interfaces registered.");
+
+    // log properties
+    {
+        DisplayProperties start_properties;
+        
+        if (!active_backend.poll_properties(&start_properties))
+            println("Failed polling display properties.");
+        else {
+            println("Display properties: %lux%lu@%lu (pixel format: %lu)",
+                start_properties.width, start_properties.height,
+                start_properties.refresh_rate, start_properties.pixel_format);
+        }
+    }
+
+    sys_create_thread(receive_rpc_thread, NULL, NULL);
+    sys_create_thread(receive_rpc_thread, NULL, NULL);
+    sys_create_thread(receive_rpc_thread, NULL, NULL);
+    sys_create_thread(receive_rpc_thread, NULL, NULL);
+    sys_create_thread(receive_rpc_thread, NULL, NULL);
+
+    println("Listening for RPCs now.");
+
+    while (1);
+
+    exit(0);
 }
