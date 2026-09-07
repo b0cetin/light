@@ -1,12 +1,15 @@
 UNIFIED_IMAGE    := light-dev
 
-.PHONY: image
+.PHONY: host-image host-build
 .PHONY: all bootloader kernel user run debug debug-kernel clean
 
 # ── Unified image (prepare devcontainer) ─────────────────────────────────────
 
-image:
+host-image:
 	docker build --platform linux/amd64 -t $(UNIFIED_IMAGE) -f .devcontainer/Dockerfile .
+
+host-build: host-image
+	docker run $(UNIFIED_IMAGE) make all
 
 # ── Build targets (run inside devcontainer) ──────────────────────────────────
 
