@@ -9,4 +9,4 @@ compile_commands.json
 /qemu
 .DS_Store
 
-/user/libc/libc.a
+/user/lib*/lib*.a

@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 static void log(const char * restrict format, ...) {
-    char buffer[205] = { 'S', 'H', 'M', ':', ' ' };
+    char buffer[205] = { 'C', 'M', 'P', ':', ' ' };
 
     va_list args;
     va_start(args, format);
@@ -16,7 +16,7 @@ static void log(const char * restrict format, ...) {
 }
 
 static void log_error(const char * restrict format, ...) {
-    char buffer[210] = { 'S', 'H', 'M', ':', ' ', 'E', 'R', 'R', ':', ' ' };
+    char buffer[210] = { 'C', 'M', 'P', ':', ' ', 'E', 'R', 'R', ':', ' ' };
 
     va_list args;
     va_start(args, format);
@@ -43,6 +43,7 @@ static bool call (pid_t caller, uint16_t call, uint32_t object, uint64_t arg0, u
 ServerInterface *interfaces_compositor() {
     interface_record.interface_id = INTERFACE_ID_COMPOSITOR;
     interface_record.name = name;
+    interface_record.handler = sys_get_pid();
     interface_record.call = call;
     return &interface_record;
 }

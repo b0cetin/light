@@ -14,6 +14,7 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 - [x] A global error ID system is needed.
 - [ ] ACPI will require custom memory addresses for kernel processes. (And yes, ACPI needs to be a kernel-space process.)
 - [ ] Perhaps add global error printing to userspace printf?
+- [ ] The RPC system is hot shit. You can't use it in any reasonable scope. I tried to make a simple interface on gfx server and failed.
 
 Known bug:
 - [x] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)

@@ -1,12 +1,14 @@
 
-#include "shared.h"
-#include "shared.h"
+#include "hashtable.h"
+#include "shared_memory.h"
 #include "interface.h"
 #include "interfaces/interfaces.h"
 #include "syscalls.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static void log(const char * restrict format, ...) {
     char buffer[205] = { 'S', 'H', 'M', ':', ' ' };
@@ -35,16 +37,29 @@ extern void exit(int64_t status);
 static ServerInterface interface_record;
 static char* name = "shared_memory";
 
-MemoryPool pools[UINT8_MAX];
-uint32_t next_pool_id = 0; // FIXME: We desperately need a hashmap and allocator in userspace.
+Hashtable *pools;
+static uint32_t next_pool_id = 0;
 
-MemoryBuffer buffers[UINT8_MAX];
-uint32_t next_buffer_id = 0; // FIXME: Same here.
+Hashtable *buffers;
+static uint32_t next_buffer_id = 0;
+
+static bool is_initialized = false;
+
+MemoryPool *get_memory_pool(MemoryPoolID id) {
+    MemoryPool *pool = NULL;
+    ht_lookup(pools, id, (void**) &pool);
+    return pool;
+}
+MemoryBuffer *get_memory_buffer(MemoryBufferID id) {
+    MemoryBuffer *buffer = NULL;
+    ht_lookup(buffers, id, (void**) &buffer);
+    return buffer;
+}
 
 static int64_t create_pool(pid_t caller, SharedMemoryID smem_id) {
-    if (next_pool_id >= UINT8_MAX) {
-        log_error("create_pool: out of pool space");
-        exit(-1);
+    if (next_pool_id >= UINT32_MAX) {
+        log_error("create_pool: out of object ids");
+        return -1;
     }
 
     void *address;
@@ -54,10 +69,19 @@ static int64_t create_pool(pid_t caller, SharedMemoryID smem_id) {
 
     uint32_t id = next_pool_id++;
 
-    pools[id].exists = true;
-    pools[id].target = caller;
-    pools[id].base = address;
-    pools[id].size = size;
+    MemoryPool *pool = malloc(sizeof(MemoryPool));
+    if (pool == NULL) {
+        log_error("create_pool: could not allocate memory pool struct");
+        return -1;
+    }
+    if (!ht_add(pools, next_pool_id, pool)) {
+        log_error("create_pool: could not add object id %u to hashtable", next_pool_id);
+        return -1;
+    }
+
+    pool->target = caller;
+    pool->base = address;
+    pool->size = size;
 
     log("Created memory pool %u for %lu with size %lu!", id, caller, size);
 
@@ -65,25 +89,22 @@ static int64_t create_pool(pid_t caller, SharedMemoryID smem_id) {
 }
 
 static int64_t destroy_pool(pid_t caller, uint32_t object) {
-    if (object >= UINT8_MAX) return -1;
-    if (!pools[object].exists || pools[object].target != caller) return -1;
+    MemoryPool *pool = get_memory_pool(object);
+    if (pool == NULL || pool->target != caller) return -1;
 
-    if (sys_memory_unmap(pools[object].base, pools[object].size, 0) != SYS_SUCCESS)
+    if (sys_memory_unmap(pool->base, pool->size, 0) != SYS_SUCCESS)
     {
         log_error("destroy_pool: cannot unmap memory pool %u");
-        exit(-1);
+        exit(-1); // This is not an operation that can be ignored.
     }
 
     log("Destroyed memory pool %u!", object);
-
     return 0;
 }
 
 static int64_t create_buffer(pid_t caller, uint32_t object, uint64_t offset, uint64_t stride, uint64_t height, PixelFormat format) {
-    if (object >= UINT8_MAX) return -1;
-    if (!pools[object].exists || pools[object].target != caller) return -1;
-
-    MemoryPool *pool = &pools[object];
+    MemoryPool *pool = get_memory_pool(object);
+    if (pool == NULL || pool->target != caller) return -1;
 
     size_t size = stride;
     uint64_t end = 0;
@@ -91,16 +112,24 @@ static int64_t create_buffer(pid_t caller, uint32_t object, uint64_t offset, uin
     if (__builtin_add_overflow(offset, size, &end)) return -1;
     if (end > pool->size) return -1;
 
-    if (next_buffer_id >= UINT8_MAX) {
-        log_error("create_buffer: out of buffer space");
+    if (next_buffer_id >= UINT32_MAX) {
+        log_error("create_buffer: out of object ids");
         exit(-1);
     }
 
     uint32_t id = next_buffer_id++;
-    MemoryBuffer *buffer = &buffers[id];
+
+    MemoryBuffer *buffer = malloc(sizeof(MemoryBuffer));
+    if (buffer == NULL) {
+        log_error("create_buffer: could not allocate memory pool struct");
+        return -1;
+    }
+    if (!ht_add(buffers, id, buffer)) {
+        log_error("create_buffer: could not add object id %u to hashtable", next_pool_id);
+        return -1;
+    }
 
     buffer->pool = object;
-    buffer->exists = true;
     buffer->offset = offset;
     buffer->size = size;
     buffer->stride = stride;
@@ -127,8 +156,15 @@ static bool call (pid_t caller, uint16_t call, uint32_t object, uint64_t arg0, u
 }
 
 ServerInterface *interfaces_shared_memory() {
+    if (!is_initialized) {
+        buffers = ht_create();
+        pools = ht_create();
+        is_initialized = true;
+    }
+
     interface_record.interface_id = INTERFACE_ID_SHARED_MEMORY;
     interface_record.name = name;
+    interface_record.handler = sys_get_pid();
     interface_record.call = call;
     return &interface_record;
 }

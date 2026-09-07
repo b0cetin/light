@@ -2,6 +2,7 @@
 #include "efi_fb.h"
 #include "graphics_backend.h"
 #include "efi_framebuffer.h"
+#include "shared.h"
 #include "stdio.h"
 #include "syscalls.h"
 #include <stdint.h>
@@ -62,7 +63,7 @@ static bool poll_properties(DisplayProperties *out_properties) {
     return true;
 }
 
-static bool present_cpu_buffer (void *buffer, size_t length, uint64_t stride, DisplayRect dirty_rect) {
+static bool present_cpu_buffer (void *buffer, size_t length, uint64_t stride, DirtyRect dirty_rect) {
     return false;
 }
 

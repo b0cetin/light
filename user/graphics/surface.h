@@ -2,13 +2,14 @@
 #pragma once
 
 #include "shared.h"
+#include "shared_memory.h"
 #include <syscalls.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
-    pid_t owner;
+typedef struct ListedDirtyRect { DirtyRect dirty_rect; struct ListedDirtyRect *next; } ListedDirtyRect;
 
+typedef struct {
     MemoryBufferID buffer;
 
     uint64_t x, y;
@@ -21,9 +22,15 @@ typedef struct {
 } SurfaceState;
 
 typedef struct Surface {
+    pid_t owner;
+
     SurfaceState current;
     SurfaceState pending;
 
     struct Surface *next;
     struct Surface *prev;
 } Surface;
+
+typedef uint32_t SurfaceID;
+
+Surface *get_surface(SurfaceID id);

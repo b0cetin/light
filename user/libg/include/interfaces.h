@@ -1,0 +1,5 @@
+
+#pragma once
+
+#define G_INTERFACE_COMPOSITOR 0
+#define G_INTERFACE_SHARED_MEMORY 1

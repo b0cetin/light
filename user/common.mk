@@ -9,6 +9,9 @@ LD      := $(TARGET)-ld
 
 USERSPACE_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 LIBC_DIR       := $(USERSPACE_ROOT)/libc
+LIBG_DIR       := $(USERSPACE_ROOT)/libg
+
+USE_LIBG ?= 0
 
 EXEC_NAME := $(notdir $(CURDIR))
 
@@ -16,7 +19,10 @@ TMP := /tmp/user-build/$(EXEC_NAME)
 OUT := $(USERSPACE_ROOT)/../dist/user
 
 C_SRCS := $(shell find . -type f -name '*.c')
-OBJS   := $(C_SRCS:%.c=$(TMP)/%.o)
+OBJS   := $(C_SRCS:%.c=$(TMP)/%.o) $(LIBC_DIR)/libc.a
+ifeq ($(strip $(USE_LIBG)), 1)
+OBJS   += $(LIBG_DIR)/libg.a
+endif
 
 OBJ_DIRS := $(sort $(dir $(OBJS)))
 
@@ -27,7 +33,11 @@ Q ?= @
 CFLAGS  := -g -ffreestanding -nostdlib -fno-pic -fno-stack-protector \
            -mno-red-zone -mcmodel=large -Wall -Werror -O3 \
            -I$(LIBC_DIR)/include \
-		   -I.
+		   -I. 
+
+ifeq ($(strip $(USE_LIBG)),1)
+CFLAGS += -I$(LIBG_DIR)/include
+endif
 
 ASFLAGS := -ffreestanding -mno-red-zone -mcmodel=large
 
@@ -52,10 +62,13 @@ all: $(OUT)/$(EXEC_NAME).elf
 $(LIBC_DIR)/libc.a:
 	$(MAKE) -C $(LIBC_DIR)
 
-$(OUT)/$(EXEC_NAME).elf: $(OBJS) $(LIBC_DIR)/libc.a
+$(LIBC_DIR)/libg.a:
+	$(MAKE) -C $(LIBG_DIR)
+
+$(OUT)/$(EXEC_NAME).elf: $(OBJS)
 	@echo "  LD    $(notdir $@)"
 	$(Q)mkdir -p $(OUT)
-	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBC_DIR)/libc.a
+	$(Q)$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 clean:
 	rm -rf $(TMP) $(OUT)/$(EXEC_NAME).elf

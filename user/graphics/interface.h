@@ -9,9 +9,11 @@ typedef bool (*InterfaceCall) (pid_t caller, uint16_t call, uint32_t object, uin
 
 typedef struct {
     uint16_t interface_id;
+    pid_t handler;
     char *name;
     InterfaceCall call;
 } ServerInterface;
 
 extern void register_interface(ServerInterface *interface);
 extern bool receive_call(pid_t caller, uint64_t header, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t *out);
+extern ServerInterface* get_interface(uint16_t id);

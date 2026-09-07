@@ -18,6 +18,7 @@ int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id) {
 }
 
 void sys_exit_thread(void *result) {
+    __asm__ volatile ("swapgs"); // We won't be returning from the syscall.
     process_begin_thread_teardown(ctx_switching_get_active_thread(), (uint64_t) result);
     // TODO: Maybe change specification to report errors?
 }

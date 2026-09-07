@@ -10,6 +10,7 @@
 #include "utils.h"
 
 void sys_exit(int64_t status) {
+    __asm__ volatile ("swapgs"); // We won't be returning from the syscall.
     process_begin_process_teardown(ctx_switching_get_active_thread()->owner, status);
     // TODO: Maybe change specification to report errors?
 }

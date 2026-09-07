@@ -65,6 +65,8 @@ int main(InitInfo *init) {
         }
     }
 
+    launch_module(&init->modules[3]); // test
+
     // Listen to incoming calls
 
     pid_t my_pid = sys_get_pid();

@@ -1,5 +1,6 @@
 
 #include "backends/efi_fb.h"
+#include "client_registry.h"
 #include "graphics_backend.h"
 #include "interface.h"
 #include "interfaces/interfaces.h"
@@ -49,6 +50,11 @@ void receive_rpc_thread() {
             exit(-1);
         }
 
+        if (call_num == CLIENT_REGISTRY_POLL_CALL_NUM) { // poll registry
+            sys_create_thread(client_registry_respond, (void*) caller, NULL);
+            continue;
+        }
+
         uint64_t out = INT64_MIN;
         receive_call(caller, call_num, arg0, arg1, arg2, arg3, &out);
         sys_rpc_return(caller, out);
@@ -56,10 +62,6 @@ void receive_rpc_thread() {
 }
 
 int main() {
-    void *a = malloc(897);
-    malloc(1234);
-    free(a);
-    
     println("Waiting for framebuffer information from init process...");
 
     uint8_t *buffer = NULL;
@@ -99,7 +101,6 @@ int main() {
             println("UEFI framebuffer at %lx, size %lu, pitch: %lu. %lux%lu@X", efi_fb_phys_base, efi_fb_size, efi_fb_pitch, efi_fb_width, efi_fb_height);
         }
 
-        sys_rpc_return(pid, 0);
         goto init;
     }
 
@@ -152,6 +153,8 @@ int main() {
     sys_create_thread(receive_rpc_thread, NULL, NULL);
 
     println("Listening for RPCs now.");
+
+    sys_rpc_return(0, 0); // Return control back to init process.
 
     while (1);
 

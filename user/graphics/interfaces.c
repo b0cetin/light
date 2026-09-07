@@ -1,6 +1,8 @@
 
+#include "hashtable.h"
 #include "interface.h"
 #include "stdio.h"
+#include "syscalls.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -27,8 +29,8 @@ void register_interface(ServerInterface *interface) {
 bool receive_call(pid_t caller, uint64_t header, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t *out) {
     uint16_t interface_id = header & (UINT64_C(0xFFFF) << (16 * 3));
 
-    if (interfaces[interface_id] == NULL)
-        return false;
+    if (interfaces[interface_id] == NULL) return false;
+    if (interfaces[interface_id]->handler != sys_get_pid()) return false;
 
     uint16_t call_num = header & (UINT64_C(0xFFFF) << (16 * 2));
     uint32_t object_id = header & (0xFFFFFFFF);
@@ -39,4 +41,11 @@ bool receive_call(pid_t caller, uint64_t header, uint64_t arg0, uint64_t arg1, u
 
     if (out != NULL) *out = result;
     return true;
+}
+
+ServerInterface* get_interface(uint16_t id) {
+    if (id >= UINT8_MAX)
+        return NULL;
+
+    return interfaces[id];
 }
