@@ -101,3 +101,7 @@ The project is slowly being developed. I prioritize getting *something* on the s
 ## License
 
 The project is MIT licensed.
+
+## Contributing
+
+All contributions are welcome! While this is a personal project that is a product of my personal journey, I won't neglect any individual who takes their time to submit a pull request to my repo. As for coding & PR conventions/styles, just try to immerse yourself into the project. I don't have any solid documentation set. "Unfamiliar coding style" is a valid reason for me to reject PRs.
