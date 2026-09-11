@@ -31,8 +31,14 @@ int main(InitInfo *init) {
 
     launch_module(&init->modules[1]); // keyboard
     uint64_t gfx_pid = launch_module(&init->modules[2]); // graphics
+    launch_module(&init->modules[3]);
 
     sys_yield();
+
+    println("Infinitely waiting...");
+
+    while (1)
+        ;
 
     // Initialize modules
     

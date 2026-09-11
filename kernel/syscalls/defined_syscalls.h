@@ -14,10 +14,14 @@
 #define SYS_ERR_OUT_OF_MEMORY -6
 #define SYS_ERR_UNRESOLVED_PID -7
 #define SYS_ERR_ADDRESS_RANGE_CLASH -8
+#define SYS_ERR_INSUFFICIENT_PERMISSIONS -9
+#define SYS_ERR_HANDLE_INVALID -10
+#define SYS_ERR_HANDLE_DESTROYED -11
 
 #define SYS_ERR_UNKNOWN_SYSCALL INT64_MIN
 
 typedef uint64_t pid_t;
+typedef uint64_t sys_handle_t;
 
 int64_t sys_print(const char* str);
 int64_t sys_create_thread(void *function, void *arg, uint64_t *out_thread_id);
@@ -76,7 +80,20 @@ typedef uint64_t Sys_MemoryUnmapFlags;
 #define MUNMAP_FLAGS_INCLUSIVE 1
 int64_t sys_memory_unmap(void *address, size_t length, Sys_MemoryUnmapFlags flags);
 
-typedef uint64_t Sys_SharedMemoryID;
-int64_t sys_memory_share_create(void **address, size_t length, Sys_MemoryAccessFlags access, Sys_SharedMemoryID *out_id);
-#define SYS_ERR_MSHARE_MAP_UNRESOLVED_SMID -4096
-int64_t sys_memory_share_map(Sys_SharedMemoryID id, void **address, Sys_MemoryAccessFlags access);
+int64_t sys_memory_share_create(void **address, size_t length, Sys_MemoryAccessFlags access, sys_handle_t *out_handle);
+int64_t sys_memory_share_map(sys_handle_t handle, void **address, Sys_MemoryAccessFlags access);
+int64_t sys_memory_share_remove(sys_handle_t handle);
+
+int64_t sys_port_create(sys_handle_t *out_handle);
+#define IPC_MESSAGE_LIMIT 256
+#define IPC_HANDLE_LIMIT 8
+typedef struct {
+    size_t size;
+    uint8_t buffer[IPC_MESSAGE_LIMIT];
+    size_t handle_count;
+    sys_handle_t handles[IPC_HANDLE_LIMIT];
+} sys_ipc_message_t;
+int64_t sys_port_send(sys_handle_t port, sys_ipc_message_t *message);
+#define SYS_ERR_PORT_NO_MESSAGE -4096
+int64_t sys_port_receive(sys_handle_t port, sys_ipc_message_t *out_message, uint64_t wait);
+int64_t sys_port_terminate(sys_handle_t port);

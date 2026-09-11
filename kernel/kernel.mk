@@ -56,12 +56,12 @@ all: $(OUT)/kernel.elf
 -include $(DEPS)
 
 $(TMP)/%.o: %.c| $(OBJ_DIRS)
-	@echo "  CC    $(notdir $<)"
+	@echo "  CC    $<"
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 
 # Separate rule for assembly — uses ASFLAGS, not CFLAGS
 $(TMP)/%.o: %.s| $(OBJ_DIRS)
-	@echo "  AS    $(notdir $<)"
+	@echo "  AS    $<"
 	$(Q)$(CC) $(ASFLAGS) -c $< -o $@
 
 $(OUT)/kernel.elf: $(OBJS)

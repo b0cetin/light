@@ -8,12 +8,12 @@
 #include "fb_graphics.h"
 #include "gdt.h"
 #include "idt.h"
+#include "kobjects.h"
 #include "msr.h"
 #include "pmm.h"
 #include "processes.h"
 #include "processor_info.h"
 #include "serial.h"
-#include "shared_memory.h"
 #include "syscalls.h"
 #include "user_interrupts.h"
 #include "userspace.h"
@@ -61,7 +61,7 @@ void kernel_main(BootInfo *boot_info) {
 
     process_init();
     user_irq_init();
-    smem_init();
+    kobjects_init();
 
     kprintln("Kernel init ended.");
     

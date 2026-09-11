@@ -54,6 +54,8 @@ typedef struct {
 #define SYS_RET(val) ((syscall_result_t){ .rax = (int64_t)(val), .rdx = 0 })
 #define SYS_ZERO SYS_RET(0)
 
+// TODO: In hindsight, having a massive switch-case statement was probably not a good idea.
+// Maybe build a dictionary once and just use that, like how we do with interrupt handlers?
 syscall_result_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t arg2, 
                           uint64_t arg3, uint64_t arg4, uint64_t arg5,
                           uint64_t arg6)
@@ -108,9 +110,11 @@ syscall_result_t syscall_handler(uint64_t call_number, uint64_t arg1, uint64_t a
         case 18:
             return SYS_RET(sys_memory_unmap((void*) arg1, arg2, arg3));
         case 19:
-            return SYS_RET(sys_memory_share_create((void**) arg1, arg2, arg3, (Sys_SharedMemoryID*) arg4));
+            return SYS_RET(sys_memory_share_create((void**) arg1, arg2, arg3, (sys_handle_t*) arg4));
         case 20:
-            return SYS_RET(sys_memory_share_map((Sys_SharedMemoryID) arg1, (void**) arg2, arg3));
+            return SYS_RET(sys_memory_share_map((sys_handle_t) arg1, (void**) arg2, arg3));
+        case 21:
+            return SYS_RET(sys_memory_share_remove((sys_handle_t) arg1));
         default:
             kprintln("SYSCALLS: Unknown syscall %ld called.", call_number);
             return SYS_RET(SYS_ERR_UNKNOWN_SYSCALL);

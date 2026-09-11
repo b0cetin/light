@@ -3,8 +3,8 @@
 #include "debugging.h"
 #include "kernel_lib.h"
 #include "allocator.h"
+#include "kobjects.h"
 #include "pmm.h"
-#include "shared_memory.h"
 #include "types.h"
 #include "vmm.h"
 #include <stdint.h>
@@ -15,8 +15,8 @@ VirtualMemoryObject *vmem_create_slice(uintptr_t *_array, size_t size) {
     memcpy(array, _array, sizeof(uintptr_t) * size);
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
-    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_SLICE;
+    object->map_count = 0;
     object->slice.count = size;
     object->slice.pages = array;
 
@@ -28,8 +28,8 @@ VirtualMemoryObject *vmem_create_slice_continuous(uintptr_t phys_start, size_t p
         array[i] = phys_start + i * PAGE_SIZE;
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
-    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_SLICE;
+    object->map_count = 0;
     object->slice.count = page_count;
     object->slice.pages = array;
 
@@ -47,8 +47,8 @@ VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free) {
     }
 
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
-    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_ALLOCATION;
+    object->map_count = 0;
     object->allocation.count = page_count;
     object->allocation.pages = array;
     
@@ -57,11 +57,37 @@ VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free) {
 
 VirtualMemoryObject *vmem_create_mmio(uint64_t phys_start, size_t page_count) {
     VirtualMemoryObject *object = kmalloc(sizeof(VirtualMemoryObject));
-    object->smem_id = SMEM_ID_NULL;
     object->type = VM_OBJ_MMIO;
+    object->map_count = 0;
     object->mmio.page_count = page_count;
     object->mmio.phys_start = phys_start;
     return object;
+}
+
+// Returns `NULL_KOBJECT` if there isn't enough memory available on the system,
+// or kernel object creation failed.
+KernelObjectID vmem_create_shared(size_t page_count) {
+    if (pmm_get_free_page_count() <= page_count) return NULL_KOBJECT;
+
+    KernelObjectEntry *entry = null;
+    KernelObjectID id = NULL_KOBJECT;
+    if (!kobject_create_without_init(KOBJECT_SHAREDMEMORY, &id, &entry)) return NULL_KOBJECT;
+
+    uintptr_t *array = kmalloc(sizeof(uintptr_t) * page_count);
+    for (size_t i = 0; i < page_count; i++) {
+        array[i] = pmm_alloc_page();
+        memzero(p2v(array[i]), PAGE_SIZE);
+    }
+
+    entry->object.shared_memory.type = VM_OBJ_SHARED;
+    entry->object.shared_memory.map_count = 0;
+
+    entry->object.shared_memory.shared.count = page_count;
+    entry->object.shared_memory.shared.pages = array;
+    entry->object.shared_memory.shared.kobject_entry = entry;
+    entry->object.shared_memory.shared.kobject_id = id;
+
+    return id;
 }
 
 uint64_t vmem_get_page_count(VirtualMemoryObject *object) {
@@ -72,6 +98,8 @@ uint64_t vmem_get_page_count(VirtualMemoryObject *object) {
         return object->allocation.count;
     case VM_OBJ_MMIO:
         return object->mmio.page_count;
+    case VM_OBJ_SHARED:
+        return object->shared.count;
     default:
         PANIC("vmem_get_page_count: unrecognized object type: %d", object->type);
     }
@@ -194,7 +222,7 @@ VASRegion *vas_add_region(VAS *vas, uint64_t virt_start, VASRegionPermission per
         region->prev = current;
     }
 
-    backing->ref_count++;
+    backing->map_count++;
 
     uint64_t cpu_mapping_flags = PT_PRESENT;
     if (!vas->is_kernel) cpu_mapping_flags |= PT_USER;
@@ -219,6 +247,10 @@ VASRegion *vas_add_region(VAS *vas, uint64_t virt_start, VASRegionPermission per
         for (uint64_t i = 0; i < backing->allocation.count; i++)
             vmm_map(vas->cpu_address_table, virt_start + i * PAGE_SIZE, backing->allocation.pages[i], cpu_mapping_flags);
         break;
+    case VM_OBJ_SHARED:
+        for (uint64_t i = 0; i < backing->shared.count; i++)
+            vmm_map(vas->cpu_address_table, virt_start + i * PAGE_SIZE, backing->shared.pages[i], cpu_mapping_flags);
+        break;
     default:
         PANIC("vas_add_region called with backing featuring an unsupported backing type: %d", backing->type);
     }
@@ -226,14 +258,30 @@ VASRegion *vas_add_region(VAS *vas, uint64_t virt_start, VASRegionPermission per
     return region;
 }
 
+// Do not destroy used memory.
+void vas_destroy_shared_memory(KernelObjectID id) {
+    KernelObjectEntry *entry = null;
+    assert(kobject_resolve(id, &entry) && entry->type == KOBJECT_SHAREDMEMORY);
+    assert(entry->object.shared_memory.map_count <= 0);
+    assert(entry->ref_count <= 0);
+
+    VirtualMemoryObject *object = &entry->object.shared_memory;
+
+    kprintln("VAS: Destroying shared memory object with %ld pages!", object->shared.count);
+
+    for (uint64_t i = 0; i < object->allocation.count; i++) pmm_free_page(object->shared.pages[i]);
+    kfree(object->shared.pages);
+
+    kobject_reset(id);
+}
+
 static void remove_region_internal(VAS *vas, VASRegion *region, bool perform_unmap) {
     if (perform_unmap) {
         switch (region->backing->type) {
-        case VM_OBJ_MMIO: {
+        case VM_OBJ_MMIO:
             for (uint64_t i = 0; i < region->backing->mmio.page_count; i++)
                 vmm_unmap(vas->cpu_address_table, region->virt_start + i * PAGE_SIZE);
             break;
-        }
         case VM_OBJ_SLICE:
             for (uint64_t i = 0; i < region->backing->slice.count; i++)
                 vmm_unmap(vas->cpu_address_table, region->virt_start + i * PAGE_SIZE);
@@ -242,15 +290,21 @@ static void remove_region_internal(VAS *vas, VASRegion *region, bool perform_unm
             for (uint64_t i = 0; i < region->backing->allocation.count; i++)
                 vmm_unmap(vas->cpu_address_table, region->virt_start + i * PAGE_SIZE);
             break;
+        case VM_OBJ_SHARED:
+            for (uint64_t i = 0; i < region->backing->shared.count; i++)
+                vmm_unmap(vas->cpu_address_table, region->virt_start + i * PAGE_SIZE);
+            break;
         default:
             PANIC("vas_remove_region called with backing featuring an unsupported backing type: %d", region->backing->type);
         }
     }
 
-    region->backing->ref_count--;
+    region->backing->map_count--;
 
-    if (region->backing->ref_count <= 0) {
-        if (smem_is_shared(region->backing)) smem_remove(region->backing);
+    bool should_destroy = region->backing->map_count <= 0;
+
+    if (should_destroy) {
+        bool free_memory_object = true;
 
         switch (region->backing->type) {
         case VM_OBJ_ALLOCATION:
@@ -268,11 +322,17 @@ static void remove_region_internal(VAS *vas, VASRegion *region, bool perform_unm
         case VM_OBJ_MMIO:
             kprintln("VAS: Destroying MMIO memory object at %lx with %ld pages!", region->backing->mmio.phys_start, region->backing->mmio.page_count);
             break;
+        case VM_OBJ_SHARED: // Special case
+            if (((KernelObjectEntry*)region->backing->shared.kobject_entry)->ref_count <= 0)
+                vas_destroy_shared_memory(region->backing->shared.kobject_id);
+
+            free_memory_object = false;
+            break;
         default:
             PANIC("vas_remove_region called with backing featuring an unsupported backing type: %d", region->backing->type);
         }
 
-        kfree(region->backing);
+        if (free_memory_object) kfree(region->backing);
         region->backing = null;
     }
 

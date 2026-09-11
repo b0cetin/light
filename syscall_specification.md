@@ -14,6 +14,9 @@ These are error codes that all syscall's share. These start from *-1* and count 
 * **SYS_ERR_OUT_OF_MEMORY** -6: There isnt't enough free memory in the system to perform the requested operation.
 * **SYS_ERR_UNRESOLVED_PID** -7: Any given `pid_t` cannot be resolved to a running process.
 * **SYS_ERR_ADDRESS_RANGE_CLASH** -8: The given requested range mapping clashes with a prior mapping.
+* **SYS_ERR_INSUFFICIENT_PERMISSIONS** -9: The requested operation could not be allowed as the calling context is not authorized to do so.
+* **SYS_ERR_HANDLE_INVALID** -10: A given handle either didn't exist or was pointing to an unexpected object.
+* **SYS_ERR_HANDLE_DESTROYED** -11: A given handle no longer exists.
 
 ---
 
@@ -22,6 +25,7 @@ These are error codes that all syscall's share. These start from *-1* and count 
 ## Types
 
 * **pid_t**: type-alias `uint64_t`
+* **handle_t**: type-alias `uint64_t`, `NULL_HANDLE` set to 0
 
 ## 0: int64_t sys_print(const char\* str)
 Prints a string to the kernel debug log.
@@ -161,15 +165,48 @@ Any return code above or equal to 0 is success, and means at least one region wa
 
 2. **SYS_MUNMAP_SUCCESS_NOOP (1):** While there were no errors, no regions could be found and unmapped during the call, making the call no-op.
 
-## 19: int64_t sys_memory_share_create(void \*\*address, size_t length, MemoryAccessFlags access, SharedMemoryID \*out_id)
-Performs `sys_memory_map`, and outputs the shared memory ID. The shared memory will not be destroyed until all processes referencing it are terminated or have unmapped it.
+## 19: int64_t sys_memory_share_create(void \*\*address, size_t length, MemoryAccessFlags access, handle_t \*out_handle)
+Performs `sys_memory_map`, and outputs the handle. The shared memory will not be destroyed until all handles have been destroyed and all mappings have been unmapped. The out argument `out_handle` is expected to be valid memory.
 
-### Type-alias SharedMemoryID: uint64_t
-A global system identifier for a shared memory region. Not presistent.
+## 20: int64_t sys_memory_share_map(handle_t handle, void \*\*address, MemoryAccessFlags access)
+Resolves the shared memory handle and maps it to the given address. If the value at `address` is `0`, then the kernel will pick a suitable location and write it out. If a value is provided, the value at `address` must be aligned to the system page size. Returns the amount of bytes mapped if successful. If `address` is invalid, **SYS_ERR_ARGUMENT_POINTER_INVALID** will be returned immediately.
 
-## 20: int64_t sys_memory_share_map(SharedMemoryID id, void \*\*address, MemoryAccessFlags access)
-Resolves the shared memory reference and maps it to the given address. If the value at `address` is `0`, then the kernel will pick a suitable location and write it out. If a value is provided, the value at `address` must be aligned to the system page size. Returns the amount of bytes mapped if successful. If `address` is invalid, **SYS_ERR_ARGUMENT_POINTER_INVALID** will be returned immediately.
+## 21: int64_t sys_memory_share_remove(handle_t handle)
+Removes the shared memory handle from the caller process' handle table. This operation does not unmap the memory, and per **sys_memory_share_map**'s documentation, for the memory to be invalid the caller must unmap it as well.
+
+## 22: int64_t sys_port_create(handle_t *out_handle)
+Creates an IPC port belonging to the calling process.
+
+## 23: int64_t sys_port_send(handle_t port, IPCMessage *message)
+Sends an IPC message to the port. If *fastpath* isn't available, the kernel will copy the buffer into kernel memory, and then write it out to the receiver's memory. The `size` value dictates how many bytes are copied, and whether *fastpath* is available. The `handles` array is expected to be a linear array without holes in it, and the `handle_count` value is respected, and not implicitly assumed. Every handle will be copied and transfered to the receiving process. The sender's handles are left intact.
+
+> Developer's Note: The kernel will free the buffer once the message is received.
+
+### struct IPCMessage
+```c
+#define IPC_MESSAGE_LIMIT 256
+#define IPC_HANDLE_LIMIT 8
+
+struct IPCMessage {
+    size_t size;
+    uint8_t buffer[IPC_MESSAGE_LIMIT];
+    size_t handle_count;
+    handle_t handles[IPC_HANDLE_LIMIT];
+};
+```
 
 ### Error Codes
 
-* **SYS_ERR_MSHARE_MAP_UNRESOLVED_SMID (-4096)**: The given `id` could not be resolved to a shared memory object.
+* Beware for **SYS_ERR_OUT_OF_MEMORY**, as if the port exhausted its message queue limit, this error code will be returned.
+* Beware for **SYS_ERR_HANDLE_DESTROYED**, as if the port was terminated before/while sending, this error code will be returned.
+
+## 24: int64_t sys_port_receive(handle_t port, IPCMessage *out_message, uint64_t wait)
+Receives a queued message from the port, and writes it out to `out_message`. The buffer is copied inside the message. If there is no message pending, but `wait` is set (>0) the thread execution will be paused until a message is received. The syscall will not touch the given `out_message` if there is no message and/or the port was terminated. A port is allowed a message queue to 8960 bytes (10 full-sized messages), before being refused to add more.
+
+### Error Codes
+
+* **SYS_ERR_PORT_NO_MESSAGE (-4096)**: No message was outputted.
+* Beware for **SYS_ERR_HANDLE_DESTROYED**, as if the port was terminated while waiting, this error code will be returned.
+
+## 25: int64_t sys_port_terminate(handle_t port)
+Clears all messages from a port and shuts it down. This operation is only permitted to the process which created the port. If the process terminates before calling this syscall, the port will be closed shut nevertheless.

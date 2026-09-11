@@ -10,14 +10,13 @@ typedef enum {
     VM_OBJ_MMIO,
     VM_OBJ_ALLOCATION,
     VM_OBJ_SLICE,
+    VM_OBJ_SHARED,
 } VirtualMemoryObjectType;
 
 // Contains variable-length array.
 typedef struct {
-    uint64_t ref_count;
-    uint64_t smem_id;
-
     VirtualMemoryObjectType type;
+    size_t map_count;
 
     union {
         struct {
@@ -34,6 +33,14 @@ typedef struct {
             size_t count;
             uintptr_t *pages;
         } allocation;
+
+        struct {
+            size_t count;
+            uintptr_t *pages;
+
+            void* kobject_entry;
+            uint64_t kobject_id;
+        } shared;
     };
 } VirtualMemoryObject;
 
@@ -84,8 +91,11 @@ static inline VirtualMemoryObject *vmem_create_slice_single(uint64_t physical_ad
     return vmem_create_slice(&physical_address, 1);
 }
 VirtualMemoryObject *vmem_create_slice_continuous(uint64_t phys_start, size_t page_count);
-VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free);
 VirtualMemoryObject *vmem_create_mmio(uint64_t phys_start, size_t page_count);
+VirtualMemoryObject *vmem_create_allocation(size_t page_count, bool free);
+
+uint64_t vmem_create_shared(size_t page_count); // Can't use KernelObjectID here.
+void vas_destroy_shared_memory(uint64_t kid);
 
 uint64_t vmem_get_page_count(VirtualMemoryObject *object);
 uintptr_t vmem_get_phys_page(VirtualMemoryObject *object, size_t index);

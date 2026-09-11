@@ -43,6 +43,7 @@ static Process *process_create_core(char *name, uint64_t pid) {
 
     size_t path_size = strnlen(name, PROCESS_NAME_MAX) + 1;
     char *new_path = kmalloc(path_size);
+    assert(new_path != null);
     memcpy(new_path, name, path_size);
 
     new_process->name = new_path;
@@ -55,6 +56,8 @@ static Process *process_create_core(char *name, uint64_t pid) {
     new_process->threads = null;
     new_process->thread_count = 0;
     new_process->next_thread_id = 0;
+
+    assert(handle_table_create(&new_process->handle_table));
 
     kprintln("PROC: Created process %ld named \"%s\".", new_process->pid, name);
 
@@ -284,6 +287,7 @@ static void teardown_process_with_switch(Process *process, int64_t status) {
     }
 
     user_irq_force_unreserve_all(process);
+    handle_table_destroy(&process->handle_table);
 
     kfree(process->name);
     process->name = null;

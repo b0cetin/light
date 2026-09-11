@@ -2,13 +2,15 @@
 #include "context_switching.h"
 #include "debugging.h"
 #include "defined_syscalls.h"
+#include "handles.h"
+#include "kobjects.h"
 #include "pmm.h"
 #include "processes.h"
-#include "shared_memory.h"
 #include "syscalls/utils.h"
 #include "types.h"
 #include "vas.h"
 #include "vmm.h"
+#include <stddef.h>
 #include <stdint.h>
 
 static VASRegionPermission access_flags_to_permissions(Sys_MemoryAccessFlags access) {
@@ -73,67 +75,64 @@ int64_t sys_map_mmio(uint64_t physical_page_base, uint64_t size, uintptr_t *virt
     return SYS_SUCCESS;
 }
 
-static int64_t memory_map_internal(VAS *vas, uintptr_t requested_address, size_t length, Sys_MemoryAccessFlags access, uintptr_t *out_address, VASRegion **out_region) {
-    uintptr_t address = requested_address;
+static int64_t get_address(VAS *vas, uintptr_t user_provided, size_t length, uintptr_t *out_address) {
+    if (length & 0xFFF) return SYS_ERR_ARGUMENT_UNALIGNED;
+    if (length == 0) return SYS_ERR_INVALID_RANGE;
     uint64_t page_count = length / PAGE_SIZE;
 
-    // checks
-    {
-        if (address > 0 && address <= 1024 * 1024) return SYS_ERR_INVALID_RANGE; // First MiB is not allowed.
-        
-        if (length & 0xFFF || address & 0xFFF)
-            return SYS_ERR_ARGUMENT_UNALIGNED;
-    
-        if (page_count == 0)
-            return SYS_ERR_INVALID_RANGE;
-
-        uint64_t end;
-        if (__builtin_add_overflow(address, length, &end)) // A possible attack target.
-            return SYS_ERR_INVALID_RANGE;
-
-        if ((access & (MMAP_ACCESS_READ | MMAP_ACCESS_WRITE | MMAP_ACCESS_EXEC)) != access)
-            return SYS_ERR_ARGUMENT_INVALID;
-    }
-
-    if (address == 0) {
-        address = vas_get_unused_space(vas, page_count);
+    if (user_provided == 0) {
+        uintptr_t address = vas_get_unused_space(vas, page_count);
 
         if (address == 0)
             return SYS_ERR_CANNOT_FIND_SPACE;
+
+        if (out_address != null) *out_address = address;
+        return SYS_SUCCESS;
     }
     else {
-        if (!is_valid_mappable_user_range(address, length))
+        if (user_provided > 0 && user_provided <= 1024 * 1024) return SYS_ERR_INVALID_RANGE; // First MiB is not allowed.
+        
+        if (user_provided & 0xFFF)
+            return SYS_ERR_ARGUMENT_UNALIGNED;
+
+        uint64_t end;
+        if (__builtin_add_overflow(user_provided, length, &end)) // A possible attack target.
             return SYS_ERR_INVALID_RANGE;
 
+        if (end >= HHDM_OFFSET) return SYS_ERR_INVALID_RANGE;
+
         VASRegion *conflicting_region = null;
-        if (!vas_get_memory_region(vas, address, address + length, &conflicting_region) ||
+        if (!vas_get_memory_region(vas, user_provided, end, &conflicting_region) ||
                 conflicting_region != null)
             return SYS_ERR_ADDRESS_RANGE_CLASH;
+        
+        *out_address = user_provided;
+        return SYS_SUCCESS;
     }
-
-    VirtualMemoryObject *object = vmem_create_allocation(page_count, true);
-    VASRegionPermission permission = access_flags_to_permissions(access);
-
-    if (object == null)
-        return SYS_ERR_OUT_OF_MEMORY;
-
-    VASRegion *region = vas_add_region(vas, address, permission, VREGION_REASON_USER_REQUEST, object);
-    if (out_region != null) *out_region = region;
-    if (out_address != null) *out_address = address;
-
-    return SYS_SUCCESS;
 }
 
 int64_t sys_memory_map(void **address, size_t length, Sys_MemoryAccessFlags access) {
-    if (!is_valid_mapped_user_range((uintptr_t) address, sizeof(uintptr_t)))
+    if (!is_valid_mapped_user_range((uintptr_t) address, sizeof(void*)))
         return SYS_ERR_ARGUMENT_POINTER_INVALID;
+
+    uintptr_t user_provided = (uintptr_t) *address;
 
     Process *process = ctx_switching_get_active_thread()->owner;
     if (process->is_ring_0) PANIC("sys_memory_map called from a kernel-space process!");
-
     VAS *vas = &process->user_vas;
 
-    return memory_map_internal(vas, (uintptr_t) *address, length, access, (uintptr_t*) address, null);
+    uintptr_t target_address = 0;
+    uint64_t status = get_address(vas, user_provided, length, &target_address);
+    if (status != SYS_SUCCESS) return status;
+
+    uint64_t page_count = length / PAGE_SIZE;
+
+    VirtualMemoryObject *object = vmem_create_allocation(page_count, true);
+    if (object == null) return SYS_ERR_OUT_OF_MEMORY;
+    
+    assert(vas_add_region(vas, target_address, access_flags_to_permissions(access), VREGION_REASON_USER_REQUEST, object));
+
+    return SYS_SUCCESS;
 }
 
 int64_t sys_memory_unmap(void *address, size_t length, Sys_MemoryUnmapFlags flags) {
@@ -197,58 +196,90 @@ int64_t sys_memory_unmap(void *address, size_t length, Sys_MemoryUnmapFlags flag
     return any_region_found ? 0 : SYS_MUNMAP_SUCCESS_NOOP;
 }
 
-int64_t sys_memory_share_create(void **address, size_t length, Sys_MemoryAccessFlags access, Sys_SharedMemoryID *out_id) {
+int64_t sys_memory_share_create(void **address, size_t length, Sys_MemoryAccessFlags access, sys_handle_t *out_handle) {
     if (!is_valid_mapped_user_range((uintptr_t) address, sizeof(void**)))
         return SYS_ERR_ARGUMENT_POINTER_INVALID;
 
-    if (!is_valid_mapped_user_range((uintptr_t) out_id, sizeof(Sys_SharedMemoryID*)))
+    uintptr_t user_provided = (uintptr_t) *address;
+
+    if (out_handle != NULL && !is_valid_mapped_user_range((uintptr_t) out_handle, sizeof(sys_handle_t*)))
         return SYS_ERR_ARGUMENT_POINTER_INVALID;
 
     Process *process = ctx_switching_get_active_thread()->owner;
-    if (process->is_ring_0) PANIC("sys_memory_map called from a kernel-space process!");
-
+    assert_msg(!process->is_ring_0, "sys_memory_share_create called from a kernel-space process!");
     VAS *vas = &process->user_vas;
+    HandleTable *table = &process->handle_table;
 
-    uintptr_t base = (uintptr_t) *address;
-    VASRegion *region = null;
+    uintptr_t target_address = 0;
+    uint64_t status = get_address(vas, user_provided, length, &target_address);
+    if (status != SYS_SUCCESS) return status;
 
-    int64_t status = memory_map_internal(vas, base, length, access, &base, &region);
-    if (status < 0) return status;
+    uint64_t page_count = length / PAGE_SIZE;
 
-    *out_id = smem_add(region->backing);
-    *address = (void*) base;
+    KernelObjectID kobject = vmem_create_shared(page_count);
+    if (kobject == NULL_KOBJECT) return SYS_ERR_OUT_OF_MEMORY;
+    KernelObjectEntry *entry = null;
+    assert(kobject_resolve(kobject, &entry));
+    assert(entry->type == KOBJECT_SHAREDMEMORY);
+
+    HandleID handle = NULL_HANDLE;
+    if (!handle_add(table, kobject, &handle)) {
+        vas_destroy_shared_memory(kobject);
+        return SYS_ERR_OUT_OF_MEMORY;
+    }
+
+    assert(vas_add_region(vas, target_address, access_flags_to_permissions(access), VREGION_REASON_USER_REQUEST, &entry->object.shared_memory));
+
+    if (out_handle != NULL) *out_handle = handle;
 
     return SYS_SUCCESS;
 }
 
-int64_t sys_memory_share_map(SharedMemoryID id, void **address, Sys_MemoryAccessFlags access) {
+int64_t sys_memory_share_map(sys_handle_t handle, void **address, Sys_MemoryAccessFlags access) {
     if (!is_valid_mapped_user_range((uintptr_t) address, sizeof(void**)))
         return SYS_ERR_ARGUMENT_POINTER_INVALID;
 
-    VirtualMemoryObject *object = smem_get(id);
-    if (object == null) return SYS_ERR_MSHARE_MAP_UNRESOLVED_SMID;
+    uintptr_t user_provided = (uintptr_t) *address;
 
+    Process *process = ctx_switching_get_active_thread()->owner;
     VAS *vas = &ctx_switching_get_active_thread()->owner->user_vas;
+    assert_msg(!process->is_ring_0, "sys_memory_share_map called from a kernel-space process!");
+    HandleTable *table = &process->handle_table;
+
+    KernelObjectID kid = NULL_KOBJECT;
+    if (!handle_resolve(table, handle, &kid))
+        return SYS_ERR_HANDLE_INVALID;
+
+    KernelObjectEntry *entry = null;
+    if (!kobject_resolve(kid, &entry) || entry->type != KOBJECT_SHAREDMEMORY)
+        return SYS_ERR_HANDLE_INVALID;
+
+    VirtualMemoryObject *object = &entry->object.shared_memory;
     size_t page_count = vmem_get_page_count(object);
+    size_t length = page_count * PAGE_SIZE;
 
-    uintptr_t base = (uintptr_t) *address;
-
-    if (base == 0) {
-        base = vas_get_unused_space(vas, page_count);
-        if (base == 0) return SYS_ERR_CANNOT_FIND_SPACE;
-    }
-    else {
-        if (!is_valid_mappable_user_range(base, page_count * PAGE_SIZE))
-            return SYS_ERR_INVALID_RANGE;
-
-        VASRegion *conflicting_region = null;
-        if (!vas_get_memory_region(vas, base, base + page_count * PAGE_SIZE, &conflicting_region) ||
-                conflicting_region != null)
-            return SYS_ERR_ADDRESS_RANGE_CLASH;
-    }
+    uintptr_t target_address = 0;
+    uint64_t status = get_address(vas, user_provided, length, &target_address);
+    if (status != SYS_SUCCESS) return status;
 
     VASRegionPermission permissions = access_flags_to_permissions(access);
-    vas_add_region(vas, base, permissions, VREGION_REASON_USER_REQUEST, object);
+    vas_add_region(vas, target_address, permissions, VREGION_REASON_USER_REQUEST, object);
 
     return page_count * PAGE_SIZE;
+}
+
+int64_t sys_memory_share_remove(sys_handle_t handle) {
+    if (handle == NULL_HANDLE) return SYS_ERR_HANDLE_INVALID;
+
+    HandleTable *table = &ctx_switching_get_active_thread()->owner->handle_table;
+    
+    KernelObjectID kid = NULL_KOBJECT;
+    if (!handle_resolve(table, handle, &kid) || kid == NULL_KOBJECT) return SYS_ERR_HANDLE_INVALID;
+    KernelObjectEntry *entry = null;
+    if (!kobject_resolve(kid, &entry) || entry == null) return SYS_ERR_HANDLE_INVALID;
+
+    if (entry->type != KOBJECT_SHAREDMEMORY) return SYS_ERR_HANDLE_INVALID;
+    if (!handle_remove(table, handle)) return SYS_ERR_HANDLE_INVALID;
+
+    return SYS_SUCCESS;
 }

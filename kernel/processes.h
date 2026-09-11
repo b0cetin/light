@@ -1,9 +1,9 @@
 
 #pragma once
 
+#include "handles.h"
 #include "types.h"
 #include "vas.h"
-#include "vmm.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -65,6 +65,9 @@ typedef struct Process {
 
     // RPC
     uint64_t threads_receiving_rpcs_count;
+
+    // Handle
+    HandleTable handle_table;
 
     // List
     struct Process *prev;

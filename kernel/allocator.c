@@ -325,3 +325,17 @@ void kfree(void *ptr) {
 void *kcalloc(size_t num, size_t size) {
     return kmalloc(num * size); // kmalloc already zero-initializes memory.
 }
+
+void *krealloc(void *ptr, size_t size) { // TODO: In-place resizing
+    BlockHeader* header = ((BlockHeader*)ptr) - 1;
+    checksum(header);
+
+    void *new_block = kmalloc(size);
+    if (new_block == null) return null;
+
+    size_t min_size = header->size > size ? size : header->size;
+    memcpy(new_block, ptr, min_size);
+
+    kfree(ptr);
+    return new_block;
+}

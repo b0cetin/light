@@ -54,7 +54,7 @@ $(OBJ_DIRS):
 	$(Q)mkdir -p $@
 
 $(TMP)/%.o: %.c | $(TMP) $(OBJ_DIRS)
-	@echo "  CC    $(notdir $<)"
+	@echo "  CC    $<"
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 
 all: $(OUT)/$(EXEC_NAME).elf

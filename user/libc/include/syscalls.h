@@ -14,10 +14,14 @@
 #define SYS_ERR_OUT_OF_MEMORY -6
 #define SYS_ERR_UNRESOLVED_PID -7
 #define SYS_ERR_ADDRESS_RANGE_CLASH -8
+#define SYS_ERR_INSUFFICIENT_PERMISSIONS -9
+#define SYS_ERR_HANDLE_INVALID -10
+#define SYS_ERR_HANDLE_DESTROYED -11
 
 #define SYS_ERR_UNKNOWN_SYSCALL INT64_MIN
 
 typedef uint64_t pid_t;
+typedef uint64_t handle_t;
 
 typedef struct {
     uint64_t rax, rdx;
@@ -133,10 +137,12 @@ static inline int64_t sys_memory_unmap(void *address, size_t length, MemoryUnmap
     return syscall(18, (uint64_t) address, length, flags, 0, 0, 0).rax;
 }
 
-typedef uint64_t SharedMemoryID;
-static inline int64_t sys_memory_share_create(void **address, size_t length, MemoryAccessFlags access, SharedMemoryID *out_id) {
-    return syscall(19, (uint64_t) address, length, access, (uint64_t) out_id, 0, 0).rax;
+static inline int64_t sys_memory_share_create(void **address, size_t length, MemoryAccessFlags access, handle_t *out_handle) {
+    return syscall(19, (uint64_t) address, length, access, (uint64_t) out_handle, 0, 0).rax;
 }
-static inline int64_t sys_memory_share_map(SharedMemoryID id, void **address, MemoryAccessFlags access) {
-    return syscall(20, id, (uint64_t) address, access, 0, 0, 0).rax;
+static inline int64_t sys_memory_share_map(handle_t handle, void **address, MemoryAccessFlags access) {
+    return syscall(20, handle, (uint64_t) address, access, 0, 0, 0).rax;
+}
+static inline int64_t sys_memory_share_remove(handle_t handle) {
+    return syscall(21, handle, 0, 0, 0, 0, 0).rax;
 }
