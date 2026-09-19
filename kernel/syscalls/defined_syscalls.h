@@ -84,15 +84,15 @@ int64_t sys_memory_share_create(void **address, size_t length, Sys_MemoryAccessF
 int64_t sys_memory_share_map(sys_handle_t handle, void **address, Sys_MemoryAccessFlags access);
 int64_t sys_memory_share_remove(sys_handle_t handle);
 
-int64_t sys_port_create(sys_handle_t *out_handle);
-#define IPC_MESSAGE_LIMIT 256
-#define IPC_HANDLE_LIMIT 8
+#define SYS_IPC_MESSAGE_LIMIT 256
+#define SYS_IPC_HANDLE_LIMIT 8
 typedef struct {
     size_t size;
-    uint8_t buffer[IPC_MESSAGE_LIMIT];
+    uint8_t buffer[SYS_IPC_MESSAGE_LIMIT];
     size_t handle_count;
-    sys_handle_t handles[IPC_HANDLE_LIMIT];
+    sys_handle_t handles[SYS_IPC_HANDLE_LIMIT];
 } sys_ipc_message_t;
+int64_t sys_port_create(sys_handle_t *out_handle);
 int64_t sys_port_send(sys_handle_t port, sys_ipc_message_t *message);
 #define SYS_ERR_PORT_NO_MESSAGE -4096
 int64_t sys_port_receive(sys_handle_t port, sys_ipc_message_t *out_message, uint64_t wait);

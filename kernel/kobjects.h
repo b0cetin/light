@@ -1,15 +1,14 @@
 
 #pragma once
 
+#include "ports.h"
 #include "types.h"
 #include "vas.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "references.h"
 
 typedef enum { KOBJECT_PORT, KOBJECT_SHAREDMEMORY } KernelObjectType;
-
-#define NULL_KOBJECT 0
-typedef uint64_t KernelObjectID;
 
 typedef struct {
     KernelObjectType type;
@@ -19,6 +18,7 @@ typedef struct {
 
     union {
         VirtualMemoryObject shared_memory;
+        IPCPort ipc_port;
     } object;
 } KernelObjectEntry;
 

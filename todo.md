@@ -18,3 +18,4 @@ The kernel is desperately lacking some features/implementations/bugfixes as of w
 
 Known bug:
 - [x] Interrupts don't keep track of user thread GS, only the kernel's! (Syscall entry/exit does it though. Probably need a central system?)
+- [ ] User interrupt handling breaks if the interrupt is delivered too quickly?

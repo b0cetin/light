@@ -146,3 +146,26 @@ static inline int64_t sys_memory_share_map(handle_t handle, void **address, Memo
 static inline int64_t sys_memory_share_remove(handle_t handle) {
     return syscall(21, handle, 0, 0, 0, 0, 0).rax;
 }
+
+#define IPC_MESSAGE_LIMIT 256
+#define IPC_HANDLE_LIMIT 8
+typedef struct {
+    size_t size;
+    uint8_t buffer[IPC_MESSAGE_LIMIT];
+    size_t handle_count;
+    handle_t handles[IPC_HANDLE_LIMIT];
+} ipc_message_t;
+int64_t sys_port_create(handle_t *out_handle) {
+    return syscall(22, (uint64_t) out_handle, 0, 0, 0, 0, 0).rax;
+}
+int64_t sys_port_send(handle_t port, ipc_message_t *message) {
+    return syscall(23, port, (uint64_t) message, 0, 0, 0, 0).rax;
+}
+#define SYS_ERR_PORT_NO_MESSAGE -4096
+int64_t sys_port_receive(handle_t port, ipc_message_t *out_message, uint64_t wait) {
+    return syscall(24, (uint64_t) out_message, wait, 0, 0, 0, 0).rax;
+}
+static inline int64_t sys_port_terminate(handle_t port) {
+    return syscall(25, port, 0, 0, 0, 0, 0).rax;
+}
+

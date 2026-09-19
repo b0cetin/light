@@ -19,6 +19,11 @@ int main() {
 
     println("a");
 
+    handle_t port = 0;
+    println("port create: %li", sys_port_create(&port));
+    println("port handle: %lu", port);
+    println("port terminate: %li", sys_port_terminate(port));
+
     while (1);
 
     GRegistry registry;

@@ -25,6 +25,7 @@ void kobjects_init() {
     kprintln("KOBJ: Central table initialized!");
 }
 
+// Returns false if the kernel object cannot be resolved.
 bool kobject_resolve(KernelObjectID id, KernelObjectEntry **out) {
     if (id >= table.capacity) return false;
     
@@ -35,7 +36,7 @@ bool kobject_resolve(KernelObjectID id, KernelObjectEntry **out) {
     return true;
 }
 
-// Returns false if out of memory.
+// Returns false if out of memory. If successful, sets everything up except for the `object` field.
 bool kobject_create_without_init(KernelObjectType type, KernelObjectID *out_id, KernelObjectEntry **out_entry) {
     if (table.count >= table.capacity) {
         size_t new_capacity = table.capacity * 2;
@@ -65,7 +66,7 @@ bool kobject_create_without_init(KernelObjectType type, KernelObjectID *out_id, 
             id++;
         }
 
-        if (!found) PANIC("kobject_table_add: impossible state encountered and no empty slot was found.");
+        assert_msg(found, "kobject_table_add: impossible state encountered and no empty slot was found.");
     }
 
     KernelObjectEntry *entry = &table.entries[id];

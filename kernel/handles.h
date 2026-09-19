@@ -1,12 +1,10 @@
 
 #pragma once
 
-#include "kobjects.h"
 #include "stdint.h"
 #include "types.h"
-
-#define NULL_HANDLE 0
-typedef uint64_t HandleID;
+#include "references.h"
+#include <stddef.h>
 
 typedef struct {
     KernelObjectID object_id;

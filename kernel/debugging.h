@@ -8,7 +8,7 @@ void kernel_panic(const char *file, int line, const char *fmt, ...);
 
 #define PANIC(msg, ...) kernel_panic(__FILE__, __LINE__, msg, ##__VA_ARGS__)
 
-#define assert_msg(condition, message) if (!(condition)) PANIC(message)
+#define assert_msg(condition, message, ...) if (!(condition)) PANIC(message, ##__VA_ARGS__)
 #define assert(condition) assert_msg(condition, "assertion failed!");
 
 #if defined(__GNUC__)

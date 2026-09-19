@@ -15,6 +15,7 @@
 #include "vas.h"
 #include "vmm.h"
 #include <stdint.h>
+#include "references.h"
 
 typedef struct __attribute((packed)) {
     uint8_t available;

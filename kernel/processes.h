@@ -55,7 +55,7 @@ typedef struct Process {
 
     // Metadata
     ProcessState state;
-    uint64_t pid;
+    PID pid;
     char *name;
 
     // Threads

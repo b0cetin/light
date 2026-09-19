@@ -112,6 +112,7 @@ bool handle_copy(HandleTable *from, HandleID from_id, HandleTable *to, HandleID 
     return handle_add(to, kobject, out_to_id);
 }
 
+// Returns false if the handle could not be resolved.
 bool handle_resolve(HandleTable *table, HandleID handle, KernelObjectID *out_kid) {
     assert(table);
     assert(handle != NULL_HANDLE);
